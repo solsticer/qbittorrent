@@ -32,7 +32,8 @@ window.qBittorrent ??= {};
 window.qBittorrent.PropPeers ??= (() => {
     const exports = () => {
         return {
-            updateData: updateData
+            updateData: updateData,
+            clear: clear
         };
     };
 
@@ -41,7 +42,7 @@ window.qBittorrent.PropPeers ??= (() => {
     let syncTorrentPeersLastResponseId = 0;
     let show_flags = true;
 
-    const loadTorrentPeersData = function() {
+    const loadTorrentPeersData = () => {
         if ($("propPeers").hasClass("invisible")
             || $("propertiesPanel_collapseToggle").hasClass("panel-expand")) {
             syncTorrentPeersLastResponseId = 0;
@@ -53,7 +54,6 @@ window.qBittorrent.PropPeers ??= (() => {
             syncTorrentPeersLastResponseId = 0;
             torrentPeersTable.clear();
             clearTimeout(loadTorrentPeersTimer);
-            loadTorrentPeersTimer = loadTorrentPeersData.delay(window.qBittorrent.Client.getSyncMainDataInterval());
             return;
         }
         const url = new URI("api/v2/sync/torrentPeers");
@@ -63,11 +63,11 @@ window.qBittorrent.PropPeers ??= (() => {
             url: url,
             method: "get",
             noCache: true,
-            onComplete: function() {
+            onComplete: () => {
                 clearTimeout(loadTorrentPeersTimer);
                 loadTorrentPeersTimer = loadTorrentPeersData.delay(window.qBittorrent.Client.getSyncMainDataInterval());
             },
-            onSuccess: function(response) {
+            onSuccess: (response) => {
                 $("error_div").textContent = "";
                 if (response) {
                     const full_update = (response["full_update"] === true);
@@ -106,17 +106,21 @@ window.qBittorrent.PropPeers ??= (() => {
         }).send();
     };
 
-    const updateData = function() {
+    const updateData = () => {
         clearTimeout(loadTorrentPeersTimer);
         loadTorrentPeersTimer = -1;
         loadTorrentPeersData();
+    };
+
+    const clear = () => {
+        torrentPeersTable.clear();
     };
 
     const torrentPeersContextMenu = new window.qBittorrent.ContextMenu.ContextMenu({
         targets: "#torrentPeersTableDiv",
         menu: "torrentPeersMenu",
         actions: {
-            addPeer: function(element, ref) {
+            addPeer: (element, ref) => {
                 const hash = torrentsTable.getCurrentTorrentID();
                 if (!hash)
                     return;
@@ -136,7 +140,7 @@ window.qBittorrent.PropPeers ??= (() => {
                     height: 260
                 });
             },
-            banPeer: function(element, ref) {
+            banPeer: (element, ref) => {
                 const selectedPeers = torrentPeersTable.selectedRowsIds();
                 if (selectedPeers.length === 0)
                     return;
@@ -172,7 +176,7 @@ window.qBittorrent.PropPeers ??= (() => {
     });
 
     new ClipboardJS("#CopyPeerInfo", {
-        text: function(trigger) {
+        text: (trigger) => {
             return torrentPeersTable.selectedRowsIds().join("\n");
         }
     });
