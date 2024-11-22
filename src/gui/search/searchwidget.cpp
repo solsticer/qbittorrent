@@ -41,8 +41,8 @@
 #include <QDebug>
 #include <QEvent>
 #include <QList>
-#include <QMessageBox>
 #include <QMenu>
+#include <QMessageBox>
 #include <QMouseEvent>
 #include <QObject>
 #include <QRegularExpression>
@@ -54,7 +54,6 @@
 #include "base/utils/foreignapps.h"
 #include "gui/desktopintegration.h"
 #include "gui/interfaces/iguiapplication.h"
-#include "gui/mainwindow.h"
 #include "gui/uithememanager.h"
 #include "pluginselectdialog.h"
 #include "searchjobwidget.h"
@@ -84,10 +83,9 @@ namespace
     }
 }
 
-SearchWidget::SearchWidget(IGUIApplication *app, MainWindow *mainWindow)
-    : GUIApplicationComponent(app, mainWindow)
+SearchWidget::SearchWidget(IGUIApplication *app, QWidget *parent)
+    : GUIApplicationComponent(app, parent)
     , m_ui {new Ui::SearchWidget()}
-    , m_mainWindow {mainWindow}
 {
     m_ui->setupUi(this);
     m_ui->tabWidget->tabBar()->installEventFilter(this);
@@ -120,7 +118,6 @@ SearchWidget::SearchWidget(IGUIApplication *app, MainWindow *mainWindow)
 #endif
     connect(m_ui->tabWidget, &QTabWidget::tabCloseRequested, this, &SearchWidget::closeTab);
     connect(m_ui->tabWidget, &QTabWidget::currentChanged, this, &SearchWidget::tabChanged);
-    connect(m_ui->tabWidget->tabBar(), &QTabBar::tabMoved, this, &SearchWidget::tabMoved);
 
     const auto *searchManager = SearchPluginManager::instance();
     const auto onPluginChanged = [this]()
@@ -176,6 +173,7 @@ bool SearchWidget::eventFilter(QObject *object, QEvent *event)
         }
         return false;
     }
+
     return QWidget::eventFilter(object, event);
 }
 
@@ -260,12 +258,9 @@ void SearchWidget::tabChanged(const int index)
 {
     // when we switch from a tab that is not empty to another that is empty
     // the download button doesn't have to be available
-    m_currentSearchTab = ((index < 0) ? nullptr : m_allTabs.at(m_ui->tabWidget->currentIndex()));
-}
-
-void SearchWidget::tabMoved(const int from, const int to)
-{
-    m_allTabs.move(from, to);
+    m_currentSearchTab = (index >= 0)
+        ? static_cast<SearchJobWidget *>(m_ui->tabWidget->widget(index))
+        : nullptr;
 }
 
 void SearchWidget::selectMultipleBox([[maybe_unused]] const int index)
@@ -353,7 +348,6 @@ void SearchWidget::on_searchButton_clicked()
 
     // Tab Addition
     auto *newTab = new SearchJobWidget(searchHandler, app(), this);
-    m_allTabs.append(newTab);
 
     QString tabName = pattern;
     tabName.replace(QRegularExpression(u"&{1}"_s), u"&&"_s);
@@ -378,22 +372,16 @@ void SearchWidget::tabStatusChanged(QWidget *tab)
     {
         Q_ASSERT(m_activeSearchTab->status() != SearchJobWidget::Status::Ongoing);
 
-        if (app()->desktopIntegration()->isNotificationsEnabled() && (m_mainWindow->currentTabWidget() != this))
-        {
-            if (m_activeSearchTab->status() == SearchJobWidget::Status::Error)
-                app()->desktopIntegration()->showNotification(tr("Search Engine"), tr("Search has failed"));
-            else
-                app()->desktopIntegration()->showNotification(tr("Search Engine"), tr("Search has finished"));
-        }
+        emit activeSearchFinished(m_activeSearchTab->status() == SearchJobWidget::Status::Error);
 
         m_activeSearchTab = nullptr;
         m_ui->searchButton->setText(tr("Search"));
     }
 }
 
-void SearchWidget::closeTab(int index)
+void SearchWidget::closeTab(const int index)
 {
-    SearchJobWidget *tab = m_allTabs.takeAt(index);
+    const QWidget *tab = m_ui->tabWidget->widget(index);
     if (tab == m_activeSearchTab)
         m_ui->searchButton->setText(tr("Search"));
 
@@ -402,6 +390,6 @@ void SearchWidget::closeTab(int index)
 
 void SearchWidget::closeAllTabs()
 {
-    for (int i = (m_allTabs.size() - 1); i >= 0; --i)
+    for (int i = (m_ui->tabWidget->count() - 1); i >= 0; --i)
         closeTab(i);
 }

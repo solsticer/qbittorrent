@@ -422,9 +422,11 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
             rssDownloaderRuleContextMenu.addTarget($("rulesTable"));
             // deselect feed when clicking on empty part of table
             $("rulesTable").addEventListener("click", (e) => {
-                rssDownloaderRulesTable.deselectAll();
-                rssDownloaderRulesTable.deselectRow();
-                showRule("");
+                if (e.target.nodeName === "DIV") {
+                    rssDownloaderRulesTable.deselectAll();
+                    rssDownloaderRulesTable.deselectRow();
+                    showRule("");
+                }
             });
             $("rulesTable").addEventListener("contextmenu", (e) => {
                 if (e.toElement.nodeName === "DIV") {
@@ -595,7 +597,7 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
             rulesList[rule].mustNotContain = $("mustNotContainText").value;
             rulesList[rule].episodeFilter = $("episodeFilterText").value;
             rulesList[rule].smartFilter = $("useSmartFilter").checked;
-            rulesList[rule].ignoreDays = parseInt($("ignoreDaysValue").value, 10);
+            rulesList[rule].ignoreDays = Number($("ignoreDaysValue").value);
             rulesList[rule].affectedFeeds = [...rssDownloaderFeedSelectionTable.getRowValues()]
                 .filter((row) => row.full_data.checked)
                 .map((row) => row.full_data.url);

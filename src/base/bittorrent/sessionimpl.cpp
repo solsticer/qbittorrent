@@ -86,6 +86,7 @@
 #include "base/utils/net.h"
 #include "base/utils/number.h"
 #include "base/utils/random.h"
+#include "base/utils/string.h"
 #include "base/version.h"
 #include "bandwidthscheduler.h"
 #include "bencoderesumedatastorage.h"
@@ -222,7 +223,7 @@ namespace
     {
         try
         {
-            return QString::fromLatin1(address.to_string().c_str());
+            return Utils::String::fromLatin1(address.to_string());
         }
         catch (const std::exception &)
         {
@@ -296,14 +297,15 @@ namespace
     {
         switch (mode)
         {
-        default:
-            Q_ASSERT(false);
         case MoveStorageMode::FailIfExist:
             return lt::move_flags_t::fail_if_exist;
         case MoveStorageMode::KeepExistingFiles:
             return lt::move_flags_t::dont_replace;
         case MoveStorageMode::Overwrite:
             return lt::move_flags_t::always_replace_files;
+        default:
+            Q_UNREACHABLE();
+            break;
         }
     }
 }
@@ -4072,14 +4074,29 @@ bool SessionImpl::isPaused() const
 
 void SessionImpl::pause()
 {
-    if (!m_isPaused)
-    {
-        if (isRestored())
-            m_nativeSession->pause();
+    if (m_isPaused)
+        return;
 
-        m_isPaused = true;
-        emit paused();
+    if (isRestored())
+    {
+        m_nativeSession->pause();
+
+        for (TorrentImpl *torrent : asConst(m_torrents))
+        {
+            torrent->resetTrackerEntryStatuses();
+
+            const QList<TrackerEntryStatus> trackers = torrent->trackers();
+            QHash<QString, TrackerEntryStatus> updatedTrackers;
+            updatedTrackers.reserve(trackers.size());
+
+            for (const TrackerEntryStatus &status : trackers)
+                updatedTrackers.emplace(status.url, status);
+            emit trackerEntryStatusesUpdated(torrent, updatedTrackers);
+        }
     }
+
+    m_isPaused = true;
+    emit paused();
 }
 
 void SessionImpl::resume()
@@ -4951,6 +4968,16 @@ void SessionImpl::setTrackerFilteringEnabled(const bool enabled)
     }
 }
 
+QString SessionImpl::lastExternalIPv4Address() const
+{
+    return m_lastExternalIPv4Address;
+}
+
+QString SessionImpl::lastExternalIPv6Address() const
+{
+    return m_lastExternalIPv6Address;
+}
+
 bool SessionImpl::isListening() const
 {
     return m_nativeSessionExtension->isSessionListening();
@@ -5222,9 +5249,6 @@ void SessionImpl::handleMoveTorrentStorageJobFinished(const Path &newPath)
     if (torrent)
     {
         torrent->handleMoveStorageJobFinished(newPath, finishedJob.context, torrentHasOutstandingJob);
-        // The torrent may become "finished" at the end of the move if it was moved
-        // from the "incomplete" location after downloading finished.
-        processPendingFinishedTorrents();
     }
     else if (!torrentHasOutstandingJob)
     {
@@ -5488,6 +5512,11 @@ void SessionImpl::setTorrentContentLayout(const TorrentContentLayout value)
 // Read alerts sent by libtorrent session
 void SessionImpl::readAlerts()
 {
+    // cache current datetime of Qt and libtorrent clocks in order
+    // to optimize conversion of time points from lt to Qt clocks
+    m_ltNow = lt::clock_type::now();
+    m_qNow = QDateTime::currentDateTime();
+
     const std::vector<lt::alert *> alerts = getPendingAlerts();
 
     Q_ASSERT(m_loadedTorrents.isEmpty());
@@ -5513,6 +5542,9 @@ void SessionImpl::readAlerts()
             m_loadedTorrents.clear();
         }
     }
+
+    // Some torrents may become "finished" after different alerts handling.
+    processPendingFinishedTorrents();
 
     processTrackerStatuses();
 }
@@ -5800,7 +5832,7 @@ void SessionImpl::handleTorrentDeleteFailedAlert(const lt::torrent_delete_failed
 #else
     const auto torrentID = TorrentID::fromInfoHash(alert->info_hash);
 #endif
-    const auto errorMessage = alert->error ? QString::fromLocal8Bit(alert->error.message().c_str()) : QString();
+    const auto errorMessage = alert->error ? Utils::String::fromLocal8Bit(alert->error.message()) : QString();
     handleRemovedTorrent(torrentID, errorMessage);
 }
 
@@ -5958,7 +5990,7 @@ void SessionImpl::handleListenFailedAlert(const lt::listen_failed_alert *alert)
     const QString proto {toString(alert->socket_type)};
     LogMsg(tr("Failed to listen on IP. IP: \"%1\". Port: \"%2/%3\". Reason: \"%4\"")
         .arg(toString(alert->address), proto, QString::number(alert->port)
-            , QString::fromLocal8Bit(alert->error.message().c_str())), Log::CRITICAL);
+            , Utils::String::fromLocal8Bit(alert->error.message())), Log::CRITICAL);
 }
 
 void SessionImpl::handleExternalIPAlert(const lt::external_ip_alert *alert)
@@ -5967,11 +5999,19 @@ void SessionImpl::handleExternalIPAlert(const lt::external_ip_alert *alert)
     LogMsg(tr("Detected external IP. IP: \"%1\"")
         .arg(externalIP), Log::INFO);
 
-    if (m_lastExternalIP != externalIP)
+    const bool isIPv6 = alert->external_address.is_v6();
+    const bool isIPv4 = alert->external_address.is_v4();
+    if (isIPv6 && (externalIP != m_lastExternalIPv6Address))
     {
-        if (isReannounceWhenAddressChangedEnabled() && !m_lastExternalIP.isEmpty())
+        if (isReannounceWhenAddressChangedEnabled() && !m_lastExternalIPv6Address.isEmpty())
             reannounceToAllTrackers();
-        m_lastExternalIP = externalIP;
+        m_lastExternalIPv6Address = externalIP;
+    }
+    else if (isIPv4 && (externalIP != m_lastExternalIPv4Address))
+    {
+        if (isReannounceWhenAddressChangedEnabled() && !m_lastExternalIPv4Address.isEmpty())
+            reannounceToAllTrackers();
+        m_lastExternalIPv4Address = externalIP;
     }
 }
 
@@ -6159,8 +6199,6 @@ void SessionImpl::handleStateUpdateAlert(const lt::state_update_alert *alert)
     if (!updatedTorrents.isEmpty())
         emit torrentsUpdated(updatedTorrents);
 
-    processPendingFinishedTorrents();
-
     if (m_needSaveTorrentsQueue)
         saveTorrentsQueue();
 
@@ -6178,7 +6216,7 @@ void SessionImpl::handleSocks5Alert(const lt::socks5_alert *alert) const
         const QString endpoint = (addr.is_v6() ? u"[%1]:%2"_s : u"%1:%2"_s)
                 .arg(QString::fromStdString(addr.to_string()), QString::number(alert->ip.port()));
         LogMsg(tr("SOCKS5 proxy error. Address: %1. Message: \"%2\".")
-                .arg(endpoint, QString::fromLocal8Bit(alert->error.message().c_str()))
+                .arg(endpoint, Utils::String::fromLocal8Bit(alert->error.message()))
                 , Log::WARNING);
     }
 }
@@ -6356,4 +6394,10 @@ void SessionImpl::handleRemovedTorrent(const TorrentID &torrentID, const QString
     }
 
     m_removingTorrents.erase(removingTorrentDataIter);
+}
+
+QDateTime SessionImpl::fromLTTimePoint32(const libtorrent::time_point32 &timePoint) const
+{
+    const auto secsSinceNow = lt::duration_cast<lt::seconds>(timePoint - m_ltNow + lt::milliseconds(500)).count();
+    return m_qNow.addSecs(secsSinceNow);
 }

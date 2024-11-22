@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="${LANG}">
+<html lang="${LANG}" class="dark">
 
 <head>
     <meta charset="UTF-8">
@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="css/style.css?v=${CACHEID}" type="text/css">
     <script src="scripts/lib/MooTools-Core-1.6.0-compat-compressed.js"></script>
     <script src="scripts/lib/MooTools-More-1.6.0-compat-compressed.js"></script>
+    <script src="scripts/localpreferences.js?v=${CACHEID}"></script>
+    <script src="scripts/color-scheme.js?v=${CACHEID}"></script>
     <script src="scripts/misc.js?locale=${LANG}&v=${CACHEID}"></script>
     <script>
         "use strict";
@@ -22,11 +24,11 @@
                     event.preventDefault();
                 },
                 "Escape": function(event) {
-                    window.parent.qBittorrent.Client.closeWindows();
+                    window.parent.qBittorrent.Client.closeFrameWindow(window);
                     event.preventDefault();
                 },
                 "Esc": function(event) {
-                    window.parent.qBittorrent.Client.closeWindows();
+                    window.parent.qBittorrent.Client.closeFrameWindow(window);
                     event.preventDefault();
                 }
             }
@@ -38,11 +40,11 @@
 
             const values = {
                 ratioLimit: window.qBittorrent.Misc.friendlyFloat(origValues[0], 2),
-                seedingTimeLimit: parseInt(origValues[1], 10),
-                inactiveSeedingTimeLimit: parseInt(origValues[2], 10),
+                seedingTimeLimit: Number(origValues[1]),
+                inactiveSeedingTimeLimit: Number(origValues[2]),
                 maxRatio: window.qBittorrent.Misc.friendlyFloat(origValues[3], 2),
-                maxSeedingTime: parseInt(origValues[4], 10),
-                maxInactiveSeedingTime: parseInt(origValues[5], 10)
+                maxSeedingTime: Number(origValues[4]),
+                maxInactiveSeedingTime: Number(origValues[5])
             };
 
             // select default when orig values not passed. using double equals to compare string and int
@@ -113,7 +115,7 @@
                         inactiveSeedingTimeLimit: inactiveSeedingTimeLimitValue
                     },
                     onComplete: () => {
-                        window.parent.qBittorrent.Client.closeWindows();
+                        window.parent.qBittorrent.Client.closeFrameWindow(window);
                     }
                 }).send();
             });

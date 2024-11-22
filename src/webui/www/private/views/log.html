@@ -1,5 +1,6 @@
 <style type="text/css">
     #logTopBar {
+        flex-shrink: 0;
         margin-top: 1em;
     }
 
@@ -22,13 +23,16 @@
     }
 
     #logView {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
         padding: 0 20px;
         overflow: auto;
     }
 
     #logContentView {
-        display: block;
-        vertical-align: top;
+        flex-grow: 1;
+        overflow: auto;
     }
 
     #logMessageTableFixedHeaderDiv .dynamicTableHeader,
@@ -184,12 +188,8 @@
         let selectedLogLevels = JSON.parse(LocalPreferences.get("qbt_selected_log_levels")) || ["1", "2", "4", "8"];
 
         const init = () => {
-            $("logLevelSelect").getElements("option").each((x) => {
-                if (selectedLogLevels.indexOf(x.value.toString()) !== -1)
-                    x.selected = true;
-                else
-                    x.selected = false;
-            });
+            for (const option of $("logLevelSelect").options)
+                option.setAttribute("selected", selectedLogLevels.includes(option.value));
 
             selectBox = new vanillaSelectBox("#logLevelSelect", {
                 maxHeight: 200,
@@ -206,7 +206,7 @@
             });
 
             const logTableContextMenu = new window.qBittorrent.ContextMenu.ContextMenu({
-                targets: ".logTableRow",
+                targets: ":is(#logMessageView, #logPeerView) tr",
                 menu: "logTableMenu",
                 actions: {
                     Clear: () => {
@@ -227,7 +227,6 @@
             tableInfo["peer"].instance.setup("logPeerTableDiv", "logPeerTableFixedHeaderDiv", logTableContextMenu);
 
             MUI.Panels.instances.LogPanel.contentEl.style.height = "100%";
-            $("logView").style.height = "inherit";
 
             load();
         };
@@ -398,7 +397,7 @@
                                 };
                             }
                             tableInfo[curTab].instance.updateRowData(row);
-                            tableInfo[curTab].last_id = Math.max(response[i].id.toInt(), tableInfo[curTab].last_id);
+                            tableInfo[curTab].last_id = Math.max(Number(response[i].id), tableInfo[curTab].last_id);
                         }
 
                         tableInfo[curTab].instance.updateTable();

@@ -99,7 +99,7 @@ window.qBittorrent.Dialog ??= (() => {
 })();
 Object.freeze(window.qBittorrent.Dialog);
 
-const LocalPreferences = new window.qBittorrent.LocalPreferences.LocalPreferencesClass();
+const LocalPreferences = new window.qBittorrent.LocalPreferences.LocalPreferences();
 
 let saveWindowSize = () => {};
 let loadWindowWidth = () => {};
@@ -1011,7 +1011,7 @@ const initializeWindows = () => {
     };
 
     deleteTrackerFN = (trackerHash) => {
-        const trackerHashInt = Number.parseInt(trackerHash, 10);
+        const trackerHashInt = Number(trackerHash);
         if ((trackerHashInt === TRACKERS_ALL) || (trackerHashInt === TRACKERS_TRACKERLESS))
             return;
 

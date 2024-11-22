@@ -30,7 +30,6 @@
 
 #pragma once
 
-#include <QList>
 #include <QPointer>
 #include <QWidget>
 
@@ -38,9 +37,7 @@
 
 class QEvent;
 class QObject;
-class QTabWidget;
 
-class MainWindow;
 class SearchJobWidget;
 
 namespace Ui
@@ -54,10 +51,13 @@ class SearchWidget : public GUIApplicationComponent<QWidget>
     Q_DISABLE_COPY_MOVE(SearchWidget)
 
 public:
-    explicit SearchWidget(IGUIApplication *app, MainWindow *mainWindow);
+    explicit SearchWidget(IGUIApplication *app, QWidget *parent);
     ~SearchWidget() override;
 
     void giveFocusToSearchInput();
+
+signals:
+    void activeSearchFinished(bool failed);
 
 private slots:
     void on_searchButton_clicked();
@@ -66,7 +66,6 @@ private slots:
 private:
     bool eventFilter(QObject *object, QEvent *event) override;
     void tabChanged(int index);
-    void tabMoved(int from, int to);
     void closeTab(int index);
     void closeAllTabs();
     void tabStatusChanged(QWidget *tab);
@@ -84,7 +83,5 @@ private:
     Ui::SearchWidget *m_ui = nullptr;
     QPointer<SearchJobWidget> m_currentSearchTab; // Selected tab
     QPointer<SearchJobWidget> m_activeSearchTab; // Tab with running search
-    QList<SearchJobWidget *> m_allTabs; // To store all tabs
-    MainWindow *m_mainWindow = nullptr;
     bool m_isNewQueryString = false;
 };

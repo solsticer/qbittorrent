@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="${LANG}">
+<html lang="${LANG}" class="dark">
 
 <head>
     <meta charset="UTF-8">
@@ -8,6 +8,8 @@
     <script src="scripts/lib/MooTools-Core-1.6.0-compat-compressed.js"></script>
     <script src="scripts/lib/MooTools-More-1.6.0-compat-compressed.js"></script>
     <script src="scripts/lib/mocha.min.js"></script>
+    <script src="scripts/localpreferences.js?v=${CACHEID}"></script>
+    <script src="scripts/color-scheme.js?v=${CACHEID}"></script>
     <script src="scripts/speedslider.js?v=${CACHEID}"></script>
 </head>
 
@@ -33,7 +35,7 @@
 
         const hashes = new URI().getData("hashes").split("|");
         const setUpLimit = () => {
-            const limit = $("uplimitUpdatevalue").value.toInt() * 1024;
+            const limit = Number($("uplimitUpdatevalue").value) * 1024;
             if (hashes[0] === "global") {
                 new Request({
                     url: "api/v2/transfer/setUploadLimit",
@@ -43,7 +45,7 @@
                     },
                     onComplete: () => {
                         window.parent.updateMainData();
-                        window.parent.qBittorrent.Client.closeWindows();
+                        window.parent.qBittorrent.Client.closeFrameWindow(window);
                     }
                 }).send();
             }
@@ -56,7 +58,7 @@
                         "limit": limit
                     },
                     onComplete: () => {
-                        window.parent.qBittorrent.Client.closeWindows();
+                        window.parent.qBittorrent.Client.closeFrameWindow(window);
                     }
                 }).send();
             }
@@ -70,11 +72,11 @@
                     event.preventDefault();
                 },
                 "Escape": function(event) {
-                    window.parent.qBittorrent.Client.closeWindows();
+                    window.parent.qBittorrent.Client.closeFrameWindow(window);
                     event.preventDefault();
                 },
                 "Esc": function(event) {
-                    window.parent.qBittorrent.Client.closeWindows();
+                    window.parent.qBittorrent.Client.closeFrameWindow(window);
                     event.preventDefault();
                 }
             }
