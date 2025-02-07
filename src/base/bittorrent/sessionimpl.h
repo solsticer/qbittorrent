@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include <chrono>
 #include <utility>
 #include <vector>
 
@@ -37,11 +38,11 @@
 #include <libtorrent/torrent_handle.hpp>
 
 #include <QtContainerFwd>
-#include <QDateTime>
 #include <QElapsedTimer>
 #include <QHash>
 #include <QList>
 #include <QMap>
+#include <QMutex>
 #include <QPointer>
 #include <QSet>
 #include <QThreadPool>
@@ -55,7 +56,6 @@
 #include "session.h"
 #include "sessionstatus.h"
 #include "torrentinfo.h"
-#include "trackerentrystatus.h"
 
 class QString;
 class QTimer;
@@ -479,8 +479,6 @@ namespace BitTorrent
         void addMappedPorts(const QSet<quint16> &ports);
         void removeMappedPorts(const QSet<quint16> &ports);
 
-        QDateTime fromLTTimePoint32(const lt::time_point32 &timePoint) const;
-
         template <typename Func>
         void invoke(Func &&func)
         {
@@ -492,6 +490,12 @@ namespace BitTorrent
         {
             m_asyncWorker->start(std::forward<Func>(func));
         }
+
+        bool isAddTrackersFromURLEnabled() const override;
+        void setAddTrackersFromURLEnabled(bool enabled) override;
+        QString additionalTrackersURL() const override;
+        void setAdditionalTrackersURL(const QString &url) override;
+        QString additionalTrackersFromURL() const override;
 
     signals:
         void addTorrentAlertsReceived(qsizetype count);
@@ -549,7 +553,6 @@ namespace BitTorrent
         void populateAdditionalTrackers();
         void enableIPFilter();
         void disableIPFilter();
-        void processTrackerStatuses();
         void processTorrentShareLimits(TorrentImpl *torrent);
         void populateExcludedFileNamesRegExpList();
         void prepareStartup();
@@ -599,7 +602,9 @@ namespace BitTorrent
         void saveTorrentsQueue();
         void removeTorrentsQueue();
 
-        std::vector<lt::alert *> getPendingAlerts(lt::time_duration time = lt::time_duration::zero()) const;
+        void populateAdditionalTrackersFromURL();
+
+        void fetchPendingAlerts(lt::time_duration time = lt::time_duration::zero());
 
         void moveTorrentStorage(const MoveStorageJob &job) const;
         void handleMoveTorrentStorageJobFinished(const Path &newPath);
@@ -613,9 +618,12 @@ namespace BitTorrent
         void saveStatistics() const;
         void loadStatistics();
 
-        void updateTrackerEntryStatuses(lt::torrent_handle torrentHandle, QHash<std::string, QHash<lt::tcp::endpoint, QMap<int, int>>> updatedTrackers);
+        void updateTrackerEntryStatuses(lt::torrent_handle torrentHandle);
 
         void handleRemovedTorrent(const TorrentID &torrentID, const QString &partfileRemoveError = {});
+
+        void setAdditionalTrackersFromURL(const QString &trackers);
+        void updateTrackersFromURL();
 
         CachedSettingValue<QString> m_DHTBootstrapNodes;
         CachedSettingValue<bool> m_isDHTEnabled;
@@ -679,6 +687,8 @@ namespace BitTorrent
         CachedSettingValue<bool> m_blockPeersOnPrivilegedPorts;
         CachedSettingValue<bool> m_isAddTrackersEnabled;
         CachedSettingValue<QString> m_additionalTrackers;
+        CachedSettingValue<bool> m_isAddTrackersFromURLEnabled;
+        CachedSettingValue<QString> m_additionalTrackersURL;
         CachedSettingValue<qreal> m_globalMaxRatio;
         CachedSettingValue<int> m_globalMaxSeedingMinutes;
         CachedSettingValue<int> m_globalMaxInactiveSeedingMinutes;
@@ -752,6 +762,9 @@ namespace BitTorrent
         bool m_IPFilteringConfigured = false;
         mutable bool m_listenInterfaceConfigured = false;
 
+        QString m_additionalTrackersFromURL;
+        QTimer *m_updateTrackersFromURLTimer = nullptr;
+
         bool m_isRestored = false;
         bool m_isPaused = isStartPaused();
 
@@ -762,6 +775,7 @@ namespace BitTorrent
 
         int m_numResumeData = 0;
         QList<TrackerEntry> m_additionalTrackerEntries;
+        QList<TrackerEntry> m_additionalTrackerEntriesFromURL;
         QList<QRegularExpression> m_excludedFileNamesRegExpList;
 
         // Statistics
@@ -797,12 +811,14 @@ namespace BitTorrent
         QMap<QString, CategoryOptions> m_categories;
         TagSet m_tags;
 
+        std::vector<lt::alert *> m_alerts;  // make it a class variable so it can preserve its allocated `capacity`
         qsizetype m_receivedAddTorrentAlertsCount = 0;
         QList<Torrent *> m_loadedTorrents;
 
         // This field holds amounts of peers reported by trackers in their responses to announces
         // (torrent.tracker_name.tracker_local_endpoint.protocol_version.num_peers)
         QHash<lt::torrent_handle, QHash<std::string, QHash<lt::tcp::endpoint, QMap<int, int>>>> m_updatedTrackerStatuses;
+        QMutex m_updatedTrackerStatusesMutex;
 
         // I/O errored torrents
         QSet<TorrentID> m_recentErroredTorrents;
@@ -827,13 +843,9 @@ namespace BitTorrent
         bool m_isPortMappingEnabled = false;
         QHash<quint16, std::vector<lt::port_mapping_t>> m_mappedPorts;
 
-        QTimer *m_wakeupCheckTimer = nullptr;
-        QDateTime m_wakeupCheckTimestamp;
+        QElapsedTimer m_wakeupCheckTimestamp;
 
         QList<TorrentImpl *> m_pendingFinishedTorrents;
-
-        QDateTime m_qNow;
-        lt::clock_type::time_point m_ltNow;
 
         friend void Session::initInstance();
         friend void Session::freeInstance();

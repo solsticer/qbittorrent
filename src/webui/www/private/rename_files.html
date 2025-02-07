@@ -15,11 +15,11 @@
         "use strict";
 
         (() => {
-            if (window.parent.qBittorrent !== undefined)
-                window.qBittorrent = window.parent.qBittorrent;
-            window.qBittorrent = window.parent.qBittorrent;
+            const {
+                options: { data },
+                windowEl
+            } = window.MUI.Windows.instances["multiRenamePage"];
 
-            const data = window.MUI.Windows.instances["multiRenamePage"].options.data;
             const bulkRenameFilesContextMenu = new window.qBittorrent.ContextMenu.ContextMenu({
                 targets: "#bulkRenameFilesTableDiv tr",
                 menu: "multiRenameFilesMenu",
@@ -44,9 +44,9 @@
             bulkRenameFilesTable.setup("bulkRenameFilesTableDiv", "bulkRenameFilesTableFixedHeaderDiv", bulkRenameFilesContextMenu);
 
             // Inject checkbox into the first column of the table header
-            const tableHeaders = $$("#bulkRenameFilesTableFixedHeaderDiv .dynamicTableHeader th");
+            const tableHeaders = document.querySelectorAll("#bulkRenameFilesTableFixedHeaderDiv .dynamicTableHeader th");
             if (tableHeaders.length > 0) {
-                const checkboxHeader = new Element("input");
+                const checkboxHeader = document.createElement("input");
                 checkboxHeader.type = "checkbox";
                 checkboxHeader.id = "rootMultiRename_cb";
                 checkboxHeader.addEventListener("click", (e) => {
@@ -56,25 +56,24 @@
                 });
 
                 const checkboxTH = tableHeaders[0];
-                checkboxHeader.injectInside(checkboxTH);
+                checkboxTH.append(checkboxHeader);
             }
 
             // Register keyboard events to modal window
             // https://github.com/qbittorrent/qBittorrent/pull/18687#discussion_r1135045726
-            const keyboard = new Keyboard({
+            new Keyboard({
                 defaultEventType: "keydown",
                 events: {
-                    "Escape": function(event) {
-                        window.parent.qBittorrent.Client.closeFrameWindow(window);
+                    Escape: (event) => {
+                        window.qBittorrent.Client.closeWindow(windowEl);
                         event.preventDefault();
                     },
-                    "Esc": function(event) {
-                        window.parent.qBittorrent.Client.closeFrameWindow(window);
+                    Esc: (event) => {
+                        window.qBittorrent.Client.closeWindow(windowEl);
                         event.preventDefault();
                     }
                 }
-            });
-            keyboard.activate();
+            }).activate();
 
             const fileRenamer = new window.qBittorrent.MultiRename.RenameFiles();
             fileRenamer.hash = data.hash;
@@ -173,7 +172,7 @@
                 // Update renamed column for matched rows
                 for (let i = 0; i < matchedRows.length; ++i) {
                     const row = matchedRows[i];
-                    $("filesTablefileRenamed" + row.rowId).textContent = row.renamed;
+                    $(`filesTablefileRenamed${row.rowId}`).textContent = row.renamed;
                 }
             };
             fileRenamer.onInvalidRegex = (err) => {
@@ -268,8 +267,8 @@
                 }
                 setupTable(selectedRows);
             };
-            fileRenamer.onRenameError = (err, row) => {
-                if (err.xhr.status === 409)
+            fileRenamer.onRenameError = (response, row) => {
+                if (response.status === 409)
                     $("rename_error").textContent = `QBT_TR(Rename failed: file or folder already exists)QBT_TR[CONTEXT=PropertiesWidget] \`${row.renamed}\``;
             };
             $("renameOptions").addEventListener("change", (e) => {
@@ -284,9 +283,9 @@
                 LocalPreferences.set("multirename_replaceAll", fileRenamer.replaceAll);
                 $("renameButton").value = replaceOperation;
             });
-            $("closeButton").addEventListener("click", () => {
-                window.parent.qBittorrent.Client.closeFrameWindow(window);
+            $("closeButton").addEventListener("click", (event) => {
                 event.preventDefault();
+                window.qBittorrent.Client.closeWindow(windowEl);
             });
             // synchronize header scrolling to table body
             $("bulkRenameFilesTableDiv").onscroll = function() {
@@ -380,17 +379,24 @@
             };
 
             const setupTable = (selectedRows) => {
-                new Request.JSON({
-                    url: new URI("api/v2/torrents/files?hash=" + data.hash),
-                    noCache: true,
-                    method: "get",
-                    onSuccess: (files) => {
+                const url = new URL("api/v2/torrents/files", window.location);
+                url.search = new URLSearchParams({
+                    hash: data.hash
+                });
+                fetch(url, {
+                        method: "GET",
+                        cache: "no-store"
+                    })
+                    .then(async (response) => {
+                        if (!response.ok)
+                            return;
+
+                        const files = await response.json();
                         if (files.length === 0)
                             bulkRenameFilesTable.clear();
                         else
                             handleTorrentFiles(files, selectedRows);
-                    }
-                }).send();
+                    });
             };
             setupTable(data.selectedRows);
         })();

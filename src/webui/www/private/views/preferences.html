@@ -825,6 +825,23 @@
         </legend>
         <textarea id="add_trackers_textarea" rows="5" cols="70" aria-labelledby="addTrackersLabel"></textarea>
     </fieldset>
+
+    <fieldset class="settings">
+        <legend>
+            <input type="checkbox" id="addTrackersFromURLCheckbox" onclick="qBittorrent.Preferences.updateAddTrackersFromURLEnabled();">
+            <label for="addTrackersFromURLCheckbox">QBT_TR(Automatically append trackers from URL to new downloads:)QBT_TR[CONTEXT=OptionsDialog]</label>
+        </legend>
+        <div class="formRow">
+            <label for="addTrackersURL">QBT_TR(URL:)QBT_TR[CONTEXT=OptionsDialog]</label>
+            <input type="text" id="addTrackersURL" style="width: 40em;">
+        </div>
+        <div class="formRow">
+            <fieldset class="settings">
+                <legend id="fetchedTrackersFromURLLabel">QBT_TR(Fetched trackers)QBT_TR[CONTEXT=OptionsDialog]</legend>
+                <textarea id="addTrackersURLListTextarea" aria-labelledby="fetchedTrackersFromURLLabel" rows="5" cols="70" readonly></textarea>
+            </fieldset>
+        </div>
+    </fieldset>
 </div>
 
 <div id="RSSTab" class="PrefTab invisible">
@@ -1736,6 +1753,7 @@ Use ';' to split multiple entries. Can use wildcard '*'.)QBT_TR[CONTEXT=OptionsD
                 updateSlowTorrentsSettings: updateSlowTorrentsSettings,
                 updateMaxRatioTimeEnabled: updateMaxRatioTimeEnabled,
                 updateAddTrackersEnabled: updateAddTrackersEnabled,
+                updateAddTrackersFromURLEnabled: updateAddTrackersFromURLEnabled,
                 updateHttpsSettings: updateHttpsSettings,
                 updateBypasssAuthSettings: updateBypasssAuthSettings,
                 updateAlternativeWebUISettings: updateAlternativeWebUISettings,
@@ -1806,42 +1824,42 @@ Use ';' to split multiple entries. Can use wildcard '*'.)QBT_TR[CONTEXT=OptionsD
 
         const addWatchFolder = (folder = "", sel = "default_folder", other = "") => {
             const pos = $("watched_folders_tab").getChildren("tbody")[0].getChildren("tr").length;
-            const myinput = "<input id='text_watch_" + pos + "' type='text' value='" + folder + "'>";
+            const myinput = `<input id='text_watch_${pos}' type='text' value='${folder}'>`;
             const disableInput = (sel !== "other");
-            const mycb = "<div class='select-watched-folder-editable'>"
-                + "<select id ='cb_watch_" + pos + "' onchange='qBittorrent.Preferences.changeWatchFolderSelect(this)'>"
-                + "<option value='watch_folder'>QBT_TR(Monitored folder)QBT_TR[CONTEXT=ScanFoldersModel]</option>"
-                + "<option value='default_folder'>QBT_TR(Default save location)QBT_TR[CONTEXT=ScanFoldersModel]</option>"
-                + "<option value='other'>QBT_TR(Other...)QBT_TR[CONTEXT=ScanFoldersModel]</option>"
-                + "</select>"
-                + "<input id='cb_watch_txt_" + pos + "' type='text' " + (disableInput ? "hidden " : "") + "/>"
-                + "<img src='images/list-add.svg' id='addFolderImg_" + pos + "' alt='Add' style='padding-left:170px;width:16px;cursor:pointer;' onclick='qBittorrent.Preferences.addWatchFolder();'>"
-                + "</div>";
+            const mycb = `<div class='select-watched-folder-editable'>`
+                + `<select id ='cb_watch_${pos}' onchange='qBittorrent.Preferences.changeWatchFolderSelect(this);'>`
+                + `<option value='watch_folder'>QBT_TR(Monitored folder)QBT_TR[CONTEXT=ScanFoldersModel]</option>`
+                + `<option value='default_folder'>QBT_TR(Default save location)QBT_TR[CONTEXT=ScanFoldersModel]</option>`
+                + `<option value='other'>QBT_TR(Other...)QBT_TR[CONTEXT=ScanFoldersModel]</option>`
+                + `</select>`
+                + `<input id='cb_watch_txt_${pos}' type='text' ${disableInput ? "hidden " : ""}/>`
+                + `<img src='images/list-add.svg' id='addFolderImg_${pos}' alt='Add' style='padding-left:170px;width:16px;cursor:pointer;' onclick='qBittorrent.Preferences.addWatchFolder();'>`
+                + `</div>`;
 
             watchedFoldersTable.push([myinput, mycb]);
-            $("cb_watch_" + pos).value = sel;
+            $(`cb_watch_${pos}`).value = sel;
             if (disableInput) {
-                const elt = $("cb_watch_" + pos);
+                const elt = $(`cb_watch_${pos}`);
                 other = elt.options[elt.selectedIndex].textContent;
             }
-            $("cb_watch_txt_" + pos).value = other;
+            $(`cb_watch_txt_${pos}`).value = other;
 
             // hide previous img
             if (pos > 0)
-                $("addFolderImg_" + (pos - 1)).style.display = "none";
+                $(`addFolderImg_${pos - 1}`).style.display = "none";
         };
 
         const getWatchedFolders = () => {
             const nb_folders = $("watched_folders_tab").getChildren("tbody")[0].getChildren("tr").length;
             const folders = new Hash();
             for (let i = 0; i < nb_folders; ++i) {
-                const fpath = $("text_watch_" + i).value.trim();
+                const fpath = $(`text_watch_${i}`).value.trim();
                 if (fpath.length > 0) {
-                    const sel = $("cb_watch_" + i).value.trim();
+                    const sel = $(`cb_watch_${i}`).value.trim();
 
                     let other;
                     if (sel === "other")
-                        other = $("cb_watch_txt_" + i).value.trim();
+                        other = $(`cb_watch_txt_${i}`).value.trim();
                     else
                         other = (sel === "watch_folder") ? 0 : 1;
 
@@ -1888,16 +1906,17 @@ Use ';' to split multiple entries. Can use wildcard '*'.)QBT_TR[CONTEXT=OptionsD
         };
 
         const sendTestEmail = () => {
-            new Request({
-                url: "api/v2/app/sendTestEmail",
-                method: "post",
-                onFailure: () => {
-                    alert("QBT_TR(Could not contact qBittorrent)QBT_TR[CONTEXT=HttpServer]");
-                },
-                onSuccess: () => {
+            fetch("api/v2/app/sendTestEmail", {
+                    method: "POST"
+                })
+                .then((response) => {
+                    if (!response.ok) {
+                        alert("QBT_TR(Could not contact qBittorrent)QBT_TR[CONTEXT=HttpServer]");
+                        return;
+                    }
+
                     alert("QBT_TR(Attempted to send email. Check your inbox to confirm success)QBT_TR[CONTEXT=OptionsDialog]");
-                }
-            }).send();
+                });
         };
 
         const updateAutoRunOnTorrentAdded = () => {
@@ -2015,6 +2034,11 @@ Use ';' to split multiple entries. Can use wildcard '*'.)QBT_TR[CONTEXT=OptionsD
             $("add_trackers_textarea").disabled = !isAddTrackersEnabled;
         };
 
+        const updateAddTrackersFromURLEnabled = () => {
+            const isAddTrackersFromURLEnabled = $("addTrackersFromURLCheckbox").checked;
+            $("addTrackersURL").disabled = !isAddTrackersFromURLEnabled;
+        };
+
         // WebUI tab
         const updateHttpsSettings = () => {
             const isUseHttpsEnabled = $("use_https_checkbox").checked;
@@ -2072,22 +2096,25 @@ Use ';' to split multiple entries. Can use wildcard '*'.)QBT_TR[CONTEXT=OptionsD
         const time_padding = (val) => {
             let ret = val.toString();
             if (ret.length === 1)
-                ret = "0" + ret;
+                ret = `0${ret}`;
             return ret;
         };
 
         // Advanced Tab
         const updateNetworkInterfaces = (default_iface, default_iface_name) => {
-            const url = "api/v2/app/networkInterfaceList";
-            $("networkInterface").getChildren().each(c => c.destroy());
-            new Request.JSON({
-                url: url,
-                method: "get",
-                noCache: true,
-                onFailure: () => {
-                    alert("Could not contact qBittorrent");
-                },
-                onSuccess: (ifaces) => {
+            [...document.getElementById("networkInterface").children].forEach((el) => { el.destroy(); });
+
+            fetch("api/v2/app/networkInterfaceList", {
+                    method: "GET",
+                    cache: "no-store"
+                })
+                .then(async (response) => {
+                    if (!response.ok) {
+                        alert("Could not contact qBittorrent");
+                        return;
+                    }
+
+                    const ifaces = await response.json();
                     if (!Array.isArray(ifaces))
                         return;
 
@@ -2100,24 +2127,27 @@ Use ';' to split multiple entries. Can use wildcard '*'.)QBT_TR[CONTEXT=OptionsD
                         $("networkInterface").options.add(new Option(item.name, item.value));
                     });
                     $("networkInterface").value = default_iface;
-                }
-            }).send();
+                });
         };
 
         const updateInterfaceAddresses = (iface, default_addr) => {
-            const url = "api/v2/app/networkInterfaceAddressList";
-            $("optionalIPAddressToBind").getChildren().each(c => c.destroy());
-            new Request.JSON({
-                url: url,
-                method: "get",
-                noCache: true,
-                data: {
-                    "iface": iface
-                },
-                onFailure: () => {
-                    alert("Could not contact qBittorrent");
-                },
-                onSuccess: (addresses) => {
+            [...document.getElementById("optionalIPAddressToBind").children].forEach((el) => { el.destroy(); });
+
+            const url = new URL("api/v2/app/networkInterfaceAddressList", window.location);
+            url.search = new URLSearchParams({
+                iface: iface
+            });
+            fetch(url, {
+                    method: "GET",
+                    cache: "no-store"
+                })
+                .then(async (response) => {
+                    if (!response.ok) {
+                        alert("Could not contact qBittorrent");
+                        return;
+                    }
+
+                    const addresses = await response.json();
                     if (!addresses)
                         return;
 
@@ -2128,8 +2158,7 @@ Use ';' to split multiple entries. Can use wildcard '*'.)QBT_TR[CONTEXT=OptionsD
                         $("optionalIPAddressToBind").options.add(new Option(item, item));
                     });
                     $("optionalIPAddressToBind").value = default_addr;
-                }
-            }).send();
+                });
         };
 
         const updateWebuiLocaleSelect = (selected) => {
@@ -2138,7 +2167,7 @@ Use ';' to split multiple entries. Can use wildcard '*'.)QBT_TR[CONTEXT=OptionsD
                 languages.push($("locale_select").options[i].value);
 
             if (!languages.includes(selected)) {
-                const lang = selected.slice(0, selected.indexOf("_"));
+                const lang = selected.split("_", 1)[0];
                 selected = languages.includes(lang) ? lang : "en";
             }
             $("locale_select").value = selected;
@@ -2438,7 +2467,11 @@ Use ';' to split multiple entries. Can use wildcard '*'.)QBT_TR[CONTEXT=OptionsD
                     // Add trackers
                     $("add_trackers_checkbox").checked = pref.add_trackers_enabled;
                     $("add_trackers_textarea").value = pref.add_trackers;
+                    $("addTrackersFromURLCheckbox").checked = pref.add_trackers_from_url_enabled;
+                    $("addTrackersURLListTextarea").value = pref.add_trackers_url_list;
+                    $("addTrackersURL").value = pref.add_trackers_url;
                     updateAddTrackersEnabled();
+                    updateAddTrackersFromURLEnabled();
 
                     // RSS Tab
                     $("enable_fetching_rss_feeds_checkbox").checked = pref.rss_processing_enabled;
@@ -2872,6 +2905,8 @@ Use ';' to split multiple entries. Can use wildcard '*'.)QBT_TR[CONTEXT=OptionsD
             // Add trackers
             settings["add_trackers_enabled"] = $("add_trackers_checkbox").checked;
             settings["add_trackers"] = $("add_trackers_textarea").value;
+            settings["add_trackers_from_url_enabled"] = $("addTrackersFromURLCheckbox").checked;
+            settings["add_trackers_url"] = $("addTrackersURL").value;
 
             // RSS Tab
             settings["rss_processing_enabled"] = $("enable_fetching_rss_feeds_checkbox").checked;
@@ -3043,12 +3078,12 @@ Use ';' to split multiple entries. Can use wildcard '*'.)QBT_TR[CONTEXT=OptionsD
                 data: settings,
                 onFailure: () => {
                     alert("QBT_TR(Unable to save program preferences, qBittorrent is probably unreachable.)QBT_TR[CONTEXT=HttpServer]");
-                    window.parent.qBittorrent.Client.closeWindow("preferencesPage");
+                    window.parent.qBittorrent.Client.closeWindow(document.getElementById("preferencesPage"));
                 },
                 onSuccess: () => {
                     // Close window
                     window.parent.location.reload();
-                    window.parent.qBittorrent.Client.closeWindow("preferencesPage");
+                    window.parent.qBittorrent.Client.closeWindow(document.getElementById("preferencesPage"));
                 }
             });
         };

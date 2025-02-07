@@ -467,7 +467,7 @@ void WebApplication::configure()
     const QString contentSecurityPolicy =
         (m_isAltUIUsed
             ? QString()
-            : u"default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self' 'unsafe-inline'; object-src 'none'; form-action 'self';"_s)
+            : u"default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self' 'unsafe-inline'; object-src 'none'; form-action 'self'; frame-src 'self' blob:;"_s)
         + (isClickjackingProtectionEnabled ? u" frame-ancestors 'self';"_s : QString())
         + (m_isHttpsEnabled ? u" upgrade-insecure-requests;"_s : QString());
     if (!contentSecurityPolicy.isEmpty())
@@ -781,10 +781,6 @@ bool WebApplication::isOriginTrustworthy() const
     }
 
     if (m_isHttpsEnabled)
-        return true;
-
-    // client is on localhost
-    if (env().clientAddress.isLoopback())
         return true;
 
     return false;

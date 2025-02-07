@@ -63,7 +63,7 @@
     <div style="width: 100%; margin-top: 10px;">
         <button type="button" style="width: 33%; line-height: 1.4em;" onclick="qBittorrent.SearchPlugins.installPlugin();">QBT_TR(Install new plugin)QBT_TR[CONTEXT=PluginSelectDlg]</button>
         <button type="button" style="width: 33%; line-height: 1.4em;" onclick="qBittorrent.SearchPlugins.checkForUpdates();">QBT_TR(Check for updates)QBT_TR[CONTEXT=PluginSelectDlg]</button>
-        <button type="button" style="width: 32%; line-height: 1.4em;" onclick="qBittorrent.SearchPlugins.closeSearchWindow('searchPlugins');">QBT_TR(Close)QBT_TR[CONTEXT=PluginSelectDlg]</button>
+        <button type="button" style="width: 32%; line-height: 1.4em;" onclick="window.qBittorrent.Client.closeWindow(document.getElementById('searchPlugins'));">QBT_TR(Close)QBT_TR[CONTEXT=PluginSelectDlg]</button>
     </div>
 </div>
 
@@ -79,7 +79,6 @@
     window.qBittorrent.SearchPlugins ??= (() => {
         const exports = () => {
             return {
-                closeSearchWindow: closeSearchWindow,
                 setup: setup,
                 installPlugin: installPlugin,
                 checkForUpdates: checkForUpdates,
@@ -113,10 +112,6 @@
             updateTable();
         };
 
-        const closeSearchWindow = (id) => {
-            window.parent.MochaUI.closeWindow(window.parent.$(id));
-        };
-
         const installPlugin = (path) => {
             new MochaUI.Window({
                 id: "installSearchPlugin",
@@ -135,15 +130,12 @@
         };
 
         const uninstallPlugin = () => {
-            const plugins = searchPluginsTable.selectedRowsIds().join("|");
-            const url = new URI("api/v2/search/uninstallPlugin");
-            new Request({
-                url: url,
-                method: "post",
-                data: {
-                    names: plugins,
-                }
-            }).send();
+            fetch("api/v2/search/uninstallPlugin", {
+                method: "POST",
+                body: new URLSearchParams({
+                    names: searchPluginsTable.selectedRowsIds().join("|")
+                })
+            });
         };
 
         const enablePlugin = () => {
@@ -152,23 +144,19 @@
             if (plugins && plugins.length)
                 enable = !window.qBittorrent.Search.getPlugin(plugins[0]).enabled;
 
-            const url = new URI("api/v2/search/enablePlugin");
-            new Request({
-                url: url,
-                method: "post",
-                data: {
+            fetch("api/v2/search/enablePlugin", {
+                method: "POST",
+                body: new URLSearchParams({
                     names: plugins.join("|"),
                     enable: enable
-                }
-            }).send();
+                })
+            });
         };
 
         const checkForUpdates = () => {
-            const url = new URI("api/v2/search/updatePlugins");
-            new Request({
-                url: url,
-                method: "post"
-            }).send();
+            fetch("api/v2/search/updatePlugins", {
+                method: "POST"
+            });
         };
 
         const calculateContextMenuOffsets = () => {

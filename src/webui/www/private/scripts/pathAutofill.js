@@ -42,7 +42,7 @@ window.qBittorrent.pathAutofill ??= (() => {
 
     const showInputSuggestions = (inputElement, names) => {
         const datalist = document.createElement("datalist");
-        datalist.id = inputElement.id + "Suggestions";
+        datalist.id = `${inputElement.id}Suggestions`;
         for (const name of names) {
             const option = document.createElement("option");
             option.value = name;
@@ -64,7 +64,10 @@ window.qBittorrent.pathAutofill ??= (() => {
         if (partialPath === "")
             return;
 
-        fetch(`api/v2/app/getDirectoryContent?dirPath=${partialPath}&mode=${mode}`)
+        fetch(`api/v2/app/getDirectoryContent?dirPath=${partialPath}&mode=${mode}`, {
+                method: "GET",
+                cache: "no-store"
+            })
             .then(response => response.json())
             .then(filesList => { showInputSuggestions(element, filesList); })
             .catch(error => {});
