@@ -88,6 +88,7 @@ QPointer<SearchPluginManager> SearchPluginManager::m_instance = nullptr;
 
 SearchPluginManager::SearchPluginManager()
     : m_updateUrl(u"https://searchplugins.qbittorrent.org/nova3/engines/"_s)
+    , m_proxyEnv {QProcessEnvironment::systemEnvironment()}
 {
     Q_ASSERT(!m_instance); // only one instance is allowed
     m_instance = this;
@@ -362,6 +363,11 @@ SearchHandler *SearchPluginManager::startSearch(const QString &pattern, const QS
     return new SearchHandler(pattern, category, usedPlugins, this);
 }
 
+QProcessEnvironment SearchPluginManager::proxyEnvironment() const
+{
+    return m_proxyEnv;
+}
+
 QString SearchPluginManager::categoryFullName(const QString &categoryName)
 {
     const QHash<QString, QString> categoryTable
@@ -403,50 +409,70 @@ Path SearchPluginManager::engineLocation()
 
 void SearchPluginManager::applyProxySettings()
 {
-    const auto *proxyManager = Net::ProxyConfigurationManager::instance();
-    const Net::ProxyConfiguration proxyConfig = proxyManager->proxyConfiguration();
+    // for python `urllib`: https://docs.python.org/3/library/urllib.request.html#urllib.request.ProxyHandler
+    const QString HTTP_PROXY = u"http_proxy"_s;
+    const QString HTTPS_PROXY = u"https_proxy"_s;
+    // for `helpers.setupSOCKSProxy()`: https://everything.curl.dev/usingcurl/proxies/socks.html
+    const QString SOCKS_PROXY = u"qbt_socks_proxy"_s;
 
-    // Define environment variables for urllib in search engine plugins
-    QString proxyStrHTTP, proxyStrSOCK;
-    if ((proxyConfig.type != Net::ProxyType::None) && Preferences::instance()->useProxyForGeneralPurposes())
+    if (!Preferences::instance()->useProxyForGeneralPurposes())
     {
-        switch (proxyConfig.type)
-        {
-        case Net::ProxyType::HTTP:
-            if (proxyConfig.authEnabled)
-            {
-                proxyStrHTTP = u"http://%1:%2@%3:%4"_s.arg(proxyConfig.username
-                        , proxyConfig.password, proxyConfig.ip, QString::number(proxyConfig.port));
-            }
-            else
-            {
-                proxyStrHTTP = u"http://%1:%2"_s.arg(proxyConfig.ip, QString::number(proxyConfig.port));
-            }
-            break;
-
-        case Net::ProxyType::SOCKS5:
-            if (proxyConfig.authEnabled)
-            {
-                proxyStrSOCK = u"%1:%2@%3:%4"_s.arg(proxyConfig.username
-                    , proxyConfig.password, proxyConfig.ip, QString::number(proxyConfig.port));
-            }
-            else
-            {
-                proxyStrSOCK = u"%1:%2"_s.arg(proxyConfig.ip, QString::number(proxyConfig.port));
-            }
-            break;
-
-        default:
-            qDebug("Disabling HTTP communications proxy");
-        }
-
-        qDebug("HTTP communications proxy string: %s"
-               , qUtf8Printable((proxyConfig.type == Net::ProxyType::SOCKS5) ? proxyStrSOCK : proxyStrHTTP));
+        m_proxyEnv.remove(HTTP_PROXY);
+        m_proxyEnv.remove(HTTPS_PROXY);
+        m_proxyEnv.remove(SOCKS_PROXY);
+        return;
     }
 
-    qputenv("http_proxy", proxyStrHTTP.toLocal8Bit());
-    qputenv("https_proxy", proxyStrHTTP.toLocal8Bit());
-    qputenv("sock_proxy", proxyStrSOCK.toLocal8Bit());
+    const Net::ProxyConfiguration proxyConfig = Net::ProxyConfigurationManager::instance()->proxyConfiguration();
+    switch (proxyConfig.type)
+    {
+    case Net::ProxyType::None:
+        m_proxyEnv.remove(HTTP_PROXY);
+        m_proxyEnv.remove(HTTPS_PROXY);
+        m_proxyEnv.remove(SOCKS_PROXY);
+        break;
+
+    case Net::ProxyType::HTTP:
+        {
+            const QString credential = proxyConfig.authEnabled
+                ? (proxyConfig.username + u':' + proxyConfig.password + u'@')
+                : QString();
+            const QString proxyURL = u"http://%1%2:%3"_s
+                .arg(credential, proxyConfig.ip, QString::number(proxyConfig.port));
+
+            m_proxyEnv.insert(HTTP_PROXY, proxyURL);
+            m_proxyEnv.insert(HTTPS_PROXY, proxyURL);
+            m_proxyEnv.remove(SOCKS_PROXY);
+        }
+        break;
+
+    case Net::ProxyType::SOCKS5:
+        {
+            const QString scheme = proxyConfig.hostnameLookupEnabled ? u"socks5h"_s : u"socks5"_s;
+            const QString credential = proxyConfig.authEnabled
+                ? (proxyConfig.username + u':' + proxyConfig.password + u'@')
+                : QString();
+            const QString proxyURL = u"%1://%2%3:%4"_s
+                .arg(scheme, credential, proxyConfig.ip, QString::number(proxyConfig.port));
+
+            m_proxyEnv.remove(HTTP_PROXY);
+            m_proxyEnv.remove(HTTPS_PROXY);
+            m_proxyEnv.insert(SOCKS_PROXY, proxyURL);
+        }
+        break;
+
+    case Net::ProxyType::SOCKS4:
+        {
+            const QString scheme = proxyConfig.hostnameLookupEnabled ? u"socks4a"_s : u"socks4"_s;
+            const QString proxyURL = u"%1://%2:%3"_s
+                .arg(scheme, proxyConfig.ip, QString::number(proxyConfig.port));
+
+            m_proxyEnv.remove(HTTP_PROXY);
+            m_proxyEnv.remove(HTTPS_PROXY);
+            m_proxyEnv.insert(SOCKS_PROXY, proxyURL);
+        }
+        break;
+    }
 }
 
 void SearchPluginManager::versionInfoDownloadFinished(const Net::DownloadResult &result)
@@ -469,9 +495,9 @@ void SearchPluginManager::pluginDownloadFinished(const Net::DownloadResult &resu
     }
     else
     {
-        const QString url = result.url;
-        QString pluginName = url.mid(url.lastIndexOf(u'/') + 1);
-        pluginName.replace(u".py"_s, u""_s, Qt::CaseInsensitive);
+        const QString &url = result.url;
+        const QString pluginName = url.sliced(url.lastIndexOf(u'/') + 1)
+            .replace(u".py"_s, u""_s, Qt::CaseInsensitive);
 
         if (pluginInfo(pluginName))
             emit pluginUpdateFailed(pluginName, tr("Failed to download the plugin file. %1").arg(result.errorString));
@@ -519,7 +545,10 @@ void SearchPluginManager::updateNova()
 void SearchPluginManager::update()
 {
     QProcess nova;
-    nova.setProcessEnvironment(QProcessEnvironment::systemEnvironment());
+    nova.setProcessEnvironment(proxyEnvironment());
+#if defined(Q_OS_UNIX) && (QT_VERSION >= QT_VERSION_CHECK(6, 6, 0))
+    nova.setUnixProcessParameters(QProcess::UnixProcessFlag::CloseFileDescriptors);
+#endif
 
     const QStringList params
     {
@@ -592,14 +621,14 @@ void SearchPluginManager::parseVersionInfo(const QByteArray &info)
     QHash<QString, PluginVersion> updateInfo;
     int numCorrectData = 0;
 
-    const QList<QByteArrayView> lines = Utils::ByteArray::splitToViews(info, "\n", Qt::SkipEmptyParts);
+    const QList<QByteArrayView> lines = Utils::ByteArray::splitToViews(info, "\n");
     for (QByteArrayView line : lines)
     {
         line = line.trimmed();
         if (line.isEmpty()) continue;
         if (line.startsWith('#')) continue;
 
-        const QList<QByteArrayView> list = Utils::ByteArray::splitToViews(line, ":", Qt::SkipEmptyParts);
+        const QList<QByteArrayView> list = Utils::ByteArray::splitToViews(line, ":");
         if (list.size() != 2) continue;
 
         const auto pluginName = QString::fromUtf8(list.first().trimmed());
@@ -653,7 +682,7 @@ PluginVersion SearchPluginManager::getPluginVersion(const Path &filePath)
         const auto line = QString::fromUtf8(pluginFile.readLine(lineMaxLength)).remove(u' ');
         if (!line.startsWith(u"#VERSION:", Qt::CaseInsensitive)) continue;
 
-        const QString versionStr = line.mid(9);
+        const QString versionStr = line.sliced(9);
         const auto version = PluginVersion::fromString(versionStr);
         if (version.isValid())
             return version;

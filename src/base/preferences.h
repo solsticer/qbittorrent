@@ -119,6 +119,8 @@ public:
     void setHideZeroComboValues(int n);
     bool isStatusbarDisplayed() const;
     void setStatusbarDisplayed(bool displayed);
+    bool isStatusbarFreeDiskSpaceDisplayed() const;
+    void setStatusbarFreeDiskSpaceDisplayed(bool displayed);
     bool isStatusbarExternalIPDisplayed() const;
     void setStatusbarExternalIPDisplayed(bool displayed);
     bool isToolbarDisplayed() const;
@@ -433,6 +435,8 @@ public:
     void setAddNewTorrentDialogTopLevel(bool value);
     int addNewTorrentDialogSavePathHistoryLength() const;
     void setAddNewTorrentDialogSavePathHistoryLength(int value);
+    bool isAddNewTorrentDialogAttached() const;
+    void setAddNewTorrentDialogAttached(bool attached);
 
 public slots:
     void setStatusFilterState(bool checked);

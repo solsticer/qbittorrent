@@ -172,8 +172,10 @@ namespace
             return nonstd::make_unexpected(readResult.error().message);
         }
 
+        const QList<QByteArrayView> lines = Utils::ByteArray::splitToViews(readResult.value(), "\n");
         QStringList history;
-        for (const QByteArrayView line : asConst(Utils::ByteArray::splitToViews(readResult.value(), "\n")))
+        history.reserve(lines.size());
+        for (const QByteArrayView line : lines)
             history.append(QString::fromUtf8(line));
 
         return history;
@@ -673,7 +675,7 @@ void SearchWidget::loadHistory()
         }
 
         if (history.size() > m_historyLength)
-            history = history.mid(history.size() - m_historyLength);
+            history.remove(0, (history.size() - m_historyLength));
 
         m_searchPatternCompleterModel->setStringList(history);
     });
