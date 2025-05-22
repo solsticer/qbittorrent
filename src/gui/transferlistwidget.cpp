@@ -72,6 +72,7 @@
 #include "tristateaction.h"
 #include "uithememanager.h"
 #include "utils.h"
+#include "utils/keysequence.h"
 
 #ifdef Q_OS_MACOS
 #include "macosshiftclickhandler.h"
@@ -228,7 +229,7 @@ TransferListWidget::TransferListWidget(IGUIApplication *app, QWidget *parent)
 
     const auto *editHotkey = new QShortcut(Qt::Key_F2, this, nullptr, nullptr, Qt::WidgetShortcut);
     connect(editHotkey, &QShortcut::activated, this, &TransferListWidget::renameSelectedTorrent);
-    const auto *deleteHotkey = new QShortcut(QKeySequence::Delete, this, nullptr, nullptr, Qt::WidgetShortcut);
+    const auto *deleteHotkey = new QShortcut(Utils::KeySequence::deleteItem(), this, nullptr, nullptr, Qt::WidgetShortcut);
     connect(deleteHotkey, &QShortcut::activated, this, &TransferListWidget::softDeleteSelectedTorrents);
     const auto *permDeleteHotkey = new QShortcut((Qt::SHIFT | Qt::Key_Delete), this, nullptr, nullptr, Qt::WidgetShortcut);
     connect(permDeleteHotkey, &QShortcut::activated, this, &TransferListWidget::permDeleteSelectedTorrents);
@@ -311,10 +312,7 @@ void TransferListWidget::torrentDoubleClicked()
     case PREVIEW_FILE:
         if (torrentContainsPreviewableFiles(torrent))
         {
-            auto *dialog = new PreviewSelectDialog(this, torrent);
-            dialog->setAttribute(Qt::WA_DeleteOnClose);
-            connect(dialog, &PreviewSelectDialog::readyToPreviewFile, this, &TransferListWidget::previewFile);
-            dialog->show();
+            openPreviewSelectDialog(torrent);
         }
         else
         {
@@ -616,10 +614,7 @@ void TransferListWidget::previewSelectedTorrents()
     {
         if (torrentContainsPreviewableFiles(torrent))
         {
-            auto *dialog = new PreviewSelectDialog(this, torrent);
-            dialog->setAttribute(Qt::WA_DeleteOnClose);
-            connect(dialog, &PreviewSelectDialog::readyToPreviewFile, this, &TransferListWidget::previewFile);
-            dialog->show();
+            openPreviewSelectDialog(torrent);
         }
         else
         {
@@ -1447,4 +1442,14 @@ void TransferListWidget::wheelEvent(QWheelEvent *event)
     }
 
     QTreeView::wheelEvent(event);  // event delegated to base class
+}
+
+void TransferListWidget::openPreviewSelectDialog(const BitTorrent::Torrent *torrent)
+{
+    auto *dialog = new PreviewSelectDialog(this, torrent);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    // Qt::QueuedConnection is required to prevent a bug on wayland compositors where the preview won't open.
+    // It occurs when the window focus shifts immediately after TransferListWidget::previewFile has been called.
+    connect(dialog, &PreviewSelectDialog::readyToPreviewFile, this, &TransferListWidget::previewFile, Qt::QueuedConnection);
+    dialog->show();
 }

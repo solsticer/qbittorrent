@@ -1,7 +1,6 @@
 /*
  * Bittorrent Client using Qt and libtorrent.
- * Copyright (C) 2018  Mike Tzou
- * Copyright (C) 2006  Christophe Dumez <chris@qbittorrent.org>
+ * Copyright (C) 2025  Mike Tzou (Chocobo1)
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -27,29 +26,16 @@
  * exception statement from your version.
  */
 
-#pragma once
+#include "keysequence.h"
 
-#include <QString>
+#include <QtSystemDetection>
+#include <QKeySequence>
 
-#include "base/global.h"
-#include "base/utils/version.h"
-
-namespace Utils::ForeignApps
+QKeySequence Utils::KeySequence::deleteItem()
 {
-    inline const QString PYTHON_ISOLATE_MODE_FLAG = u"-I"_s;
-
-    struct PythonInfo
-    {
-        using Version = Utils::Version<3, 1>;
-
-        bool isValid() const;
-        bool isSupportedVersion() const;
-
-        QString executableName;
-        Version version;
-
-        inline static const Version MINIMUM_SUPPORTED_VERSION {3, 9, 0};
-    };
-
-    PythonInfo pythonInfo();
+#ifdef Q_OS_MACOS
+    return Qt::CTRL | Qt::Key_Backspace;
+#else
+    return QKeySequence::Delete;
+#endif
 }

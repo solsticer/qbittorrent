@@ -43,8 +43,10 @@ window.qBittorrent.PropPeers ??= (() => {
     let show_flags = true;
 
     const loadTorrentPeersData = () => {
-        if ($("propPeers").classList.contains("invisible")
-            || $("propertiesPanel_collapseToggle").classList.contains("panel-expand")) {
+        if (document.hidden)
+            return;
+        if (document.getElementById("propPeers").classList.contains("invisible")
+            || document.getElementById("propertiesPanel_collapseToggle").classList.contains("panel-expand")) {
             syncTorrentPeersLastResponseId = 0;
             torrentPeersTable.clear();
             return;
@@ -71,7 +73,7 @@ window.qBittorrent.PropPeers ??= (() => {
 
                 const responseJSON = await response.json();
 
-                $("error_div").textContent = "";
+                document.getElementById("error_div").textContent = "";
                 if (responseJSON) {
                     const full_update = (responseJSON["full_update"] === true);
                     if (full_update)
@@ -187,7 +189,7 @@ window.qBittorrent.PropPeers ??= (() => {
         }
     });
 
-    torrentPeersTable.setup("torrentPeersTableDiv", "torrentPeersTableFixedHeaderDiv", torrentPeersContextMenu);
+    torrentPeersTable.setup("torrentPeersTableDiv", "torrentPeersTableFixedHeaderDiv", torrentPeersContextMenu, true);
 
     return exports();
 })();

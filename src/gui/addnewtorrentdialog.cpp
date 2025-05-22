@@ -1,6 +1,6 @@
 /*
  * Bittorrent Client using Qt and libtorrent.
- * Copyright (C) 2022-2024  Vladimir Golovnev <glassez@yandex.ru>
+ * Copyright (C) 2022-2025  Vladimir Golovnev <glassez@yandex.ru>
  * Copyright (C) 2012  Christophe Dumez <chris@qbittorrent.org>
  *
  * This program is free software; you can redistribute it and/or
@@ -32,12 +32,14 @@
 #include <algorithm>
 #include <functional>
 
+#include <QtVersionChecks>
 #include <QAction>
 #include <QByteArray>
 #include <QDateTime>
 #include <QDebug>
 #include <QDir>
 #include <QFileDialog>
+#include <QFuture>
 #include <QList>
 #include <QMenu>
 #include <QMessageBox>
@@ -242,14 +244,13 @@ public:
         return QList<qreal>(filesCount(), 0);
     }
 
-    QList<qreal> availableFileFractions() const override
+    QFuture<QList<qreal>> fetchAvailableFileFractions() const override
     {
-        return QList<qreal>(filesCount(), 0);
-    }
-
-    void fetchAvailableFileFractions(std::function<void (QList<qreal>)> resultHandler) const override
-    {
-        resultHandler(availableFileFractions());
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 6, 0))
+        return QtFuture::makeReadyValueFuture(QList<qreal>(filesCount(), 0));
+#else
+        return QtFuture::makeReadyFuture(QList<qreal>(filesCount(), 0));
+#endif
     }
 
     void prioritizeFiles(const QList<BitTorrent::DownloadPriority> &priorities) override
@@ -386,7 +387,6 @@ AddNewTorrentDialog::AddNewTorrentDialog(const BitTorrent::TorrentDescriptor &to
 
 AddNewTorrentDialog::~AddNewTorrentDialog()
 {
-    saveState();
     delete m_ui;
 }
 
@@ -400,7 +400,7 @@ void AddNewTorrentDialog::loadState()
     if (const QSize dialogSize = m_storeDialogSize; dialogSize.isValid())
         resize(dialogSize);
 
-    m_ui->splitter->restoreState(m_storeSplitterState);;
+    m_ui->splitter->restoreState(m_storeSplitterState);
 }
 
 void AddNewTorrentDialog::saveState()
@@ -834,6 +834,12 @@ void AddNewTorrentDialog::reject()
     }
 
     QDialog::reject();
+}
+
+void AddNewTorrentDialog::done(const int result)
+{
+    saveState();
+    QDialog::done(result);
 }
 
 void AddNewTorrentDialog::updateMetadata(const BitTorrent::TorrentInfo &metadata)
