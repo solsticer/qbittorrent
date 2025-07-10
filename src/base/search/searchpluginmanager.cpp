@@ -513,14 +513,14 @@ void SearchPluginManager::updateNova()
     const Path enginePath = engineLocation();
 
     QFile packageFile {(enginePath / Path(u"__init__.py"_s)).data()};
-    packageFile.open(QIODevice::WriteOnly);
-    packageFile.close();
+    if (packageFile.open(QIODevice::WriteOnly))
+        packageFile.close();
 
     Utils::Fs::mkdir(enginePath / Path(u"engines"_s));
 
     QFile packageFile2 {(enginePath / Path(u"engines/__init__.py"_s)).data()};
-    packageFile2.open(QIODevice::WriteOnly);
-    packageFile2.close();
+    if (packageFile2.open(QIODevice::WriteOnly))
+        packageFile2.close();
 
     // Copy search plugin files (if necessary)
     const auto updateFile = [&enginePath](const Path &filename)
@@ -556,7 +556,7 @@ void SearchPluginManager::update()
         (engineLocation() / Path(u"/nova2.py"_s)).toString(),
         u"--capabilities"_s
     };
-    nova.start(Utils::ForeignApps::pythonInfo().executableName, params, QIODevice::ReadOnly);
+    nova.start(Utils::ForeignApps::pythonInfo().executablePath.data(), params, QIODevice::ReadOnly);
     nova.waitForFinished();
 
     const auto capabilities = QString::fromUtf8(nova.readAllStandardOutput());

@@ -40,6 +40,7 @@
 #include <QString>
 
 #include "base/global.h"
+#include "base/logger.h"
 #include "base/net/downloadmanager.h"
 #include "base/preferences.h"
 #include "base/rss/rss_article.h"
@@ -333,7 +334,7 @@ void RSSWidget::on_newFeedButton_clicked()
 
     // Ask for feed URL
     const QString clipText = qApp->clipboard()->text();
-    const QString defaultURL = Net::DownloadManager::hasSupportedScheme(clipText) ? clipText : u"http://"_s;
+    const QString defaultURL = Net::DownloadManager::hasSupportedScheme(clipText) ? clipText : u"https://"_s;
 
     RSS::Feed *newFeed = nullptr;
     RSSFeedDialog dialog {this};
@@ -433,16 +434,52 @@ void RSSWidget::downloadSelectedTorrents()
 // open the url of the selected RSS articles in the Web browser
 void RSSWidget::openSelectedArticlesUrls()
 {
+    qsizetype emptyLinkCount = 0;
+    qsizetype badLinkCount = 0;
+    QString articleTitle;
     for (QListWidgetItem *item : asConst(m_ui->articleListWidget->selectedItems()))
     {
         auto *article = item->data(Qt::UserRole).value<RSS::Article *>();
         Q_ASSERT(article);
 
-        // Mark as read
         article->markAsRead();
 
-        if (!article->link().isEmpty())
-            QDesktopServices::openUrl(QUrl(article->link()));
+        const QString articleLink = article->link();
+        const QUrl articleLinkURL {articleLink};
+        if (articleLinkURL.isEmpty()) [[unlikely]]
+        {
+            if (articleTitle.isEmpty())
+                articleTitle = article->title();
+            ++emptyLinkCount;
+        }
+        else if (articleLinkURL.isLocalFile()) [[unlikely]]
+        {
+            if (badLinkCount == 0)
+                articleTitle = article->title();
+            ++badLinkCount;
+
+            LogMsg(tr("Blocked opening RSS article URL. URL pointing to local file might be malicious behaviour. Article: \"%1\". URL: \"%2\".")
+                    .arg(article->title(), articleLink), Log::WARNING);
+        }
+        else [[likely]]
+        {
+            QDesktopServices::openUrl(articleLinkURL);
+        }
+    }
+
+    if (badLinkCount > 0)
+    {
+        QString message = tr("Blocked opening RSS article URL. The following article URL is pointing to local file and it may be malicious behaviour:\n%1").arg(articleTitle);
+        if (badLinkCount > 1)
+            message.append(u"\n" + tr("There are %1 more articles with the same issue.").arg(badLinkCount - 1));
+        QMessageBox::warning(this, u"qBittorrent"_s, message, QMessageBox::Ok);
+    }
+    else if (emptyLinkCount > 0)
+    {
+        QString message = tr("The following article has no news URL provided:\n%1").arg(articleTitle);
+        if (emptyLinkCount > 1)
+            message.append(u"\n" + tr("There are %1 more articles with the same issue.").arg(emptyLinkCount - 1));
+        QMessageBox::warning(this, u"qBittorrent"_s, message, QMessageBox::Ok);
     }
 }
 
@@ -623,58 +660,60 @@ void RSSWidget::renderArticle(const RSS::Article *article) const
 {
     Q_ASSERT(article);
 
+    const QString articleLink = article->link();
     const QString highlightedBaseColor = m_ui->textBrowser->palette().color(QPalette::Active, QPalette::Highlight).name();
     const QString highlightedBaseTextColor = m_ui->textBrowser->palette().color(QPalette::Active, QPalette::HighlightedText).name();
     const QString alternateBaseColor = m_ui->textBrowser->palette().color(QPalette::Active, QPalette::AlternateBase).name();
 
-    QString html =
-        u"<div style='border: 2px solid red; margin-left: 5px; margin-right: 5px; margin-bottom: 5px;'>" +
-        u"<div style='background-color: \"%1\"; font-weight: bold; color: \"%2\";'>%3</div>"_s.arg(highlightedBaseColor, highlightedBaseTextColor, article->title());
-    if (article->date().isValid())
-        html += u"<div style='background-color: \"%1\";'><b>%2</b>%3</div>"_s.arg(alternateBaseColor, tr("Date: "), QLocale::system().toString(article->date().toLocalTime(), QLocale::ShortFormat));
+    QString html = u"<div style='border: 2px solid red; margin-left: 5px; margin-right: 5px; margin-bottom: 5px;'>"
+        + u"<div style='background-color: \"%1\"; font-weight: bold; color: \"%2\";'>%3</div>"_s.arg(highlightedBaseColor, highlightedBaseTextColor, article->title());
+    if (const QDateTime articleDate = article->date(); articleDate.isValid())
+        html += u"<div style='background-color: \"%1\";'><b>%2</b>%3</div>"_s.arg(alternateBaseColor, tr("Date: "), QLocale::system().toString(articleDate.toLocalTime(), QLocale::ShortFormat));
     if (m_ui->feedListWidget->currentItem() == m_ui->feedListWidget->stickyUnreadItem())
         html += u"<div style='background-color: \"%1\";'><b>%2</b>%3</div>"_s.arg(alternateBaseColor, tr("Feed: "), article->feed()->title());
-    if (!article->author().isEmpty())
-        html += u"<div style='background-color: \"%1\";'><b>%2</b>%3</div>"_s.arg(alternateBaseColor, tr("Author: "), article->author());
+    if (const QString articleAuthor = article->author(); !articleAuthor.isEmpty())
+        html += u"<div style='background-color: \"%1\";'><b>%2</b>%3</div>"_s.arg(alternateBaseColor, tr("Author: "), articleAuthor);
+    if (!articleLink.isEmpty())
+        html += u"<div style='background-color: \"%1\";'><a href='%2' target='_blank'><b>%3</b></a></div>"_s.arg(alternateBaseColor, articleLink, tr("Open link"));
     html += u"</div>"
             u"<div style='margin-left: 5px; margin-right: 5px;'>";
-    if (Qt::mightBeRichText(article->description()))
+    if (QString description = article->description(); Qt::mightBeRichText(description))
     {
-        html += article->description();
+        html += description;
     }
     else
     {
-        QString description = article->description();
         QRegularExpression rx;
         // If description is plain text, replace BBCode tags with HTML and wrap everything in <pre></pre> so it looks nice
         rx.setPatternOptions(QRegularExpression::InvertedGreedinessOption
                              | QRegularExpression::CaseInsensitiveOption);
 
         rx.setPattern(u"\\[img\\](.+)\\[/img\\]"_s);
-        description = description.replace(rx, u"<img src=\"\\1\">"_s);
+        description.replace(rx, u"<img src=\"\\1\">"_s);
 
         rx.setPattern(u"\\[url=(\")?(.+)\\1\\]"_s);
-        description = description.replace(rx, u"<a href=\"\\2\">"_s);
-        description = description.replace(u"[/url]"_s, u"</a>"_s, Qt::CaseInsensitive);
+        description.replace(rx, u"<a href=\"\\2\">"_s)
+            .replace(u"[/url]"_s, u"</a>"_s, Qt::CaseInsensitive);
 
         rx.setPattern(u"\\[(/)?([bius])\\]"_s);
-        description = description.replace(rx, u"<\\1\\2>"_s);
+        description.replace(rx, u"<\\1\\2>"_s);
 
         rx.setPattern(u"\\[color=(\")?(.+)\\1\\]"_s);
-        description = description.replace(rx, u"<span style=\"color:\\2\">"_s);
-        description = description.replace(u"[/color]"_s, u"</span>"_s, Qt::CaseInsensitive);
+        description.replace(rx, u"<span style=\"color:\\2\">"_s)
+            .replace(u"[/color]"_s, u"</span>"_s, Qt::CaseInsensitive);
 
         rx.setPattern(u"\\[size=(\")?(.+)\\d\\1\\]"_s);
-        description = description.replace(rx, u"<span style=\"font-size:\\2px\">"_s);
-        description = description.replace(u"[/size]"_s, u"</span>"_s, Qt::CaseInsensitive);
+        description.replace(rx, u"<span style=\"font-size:\\2px\">"_s)
+            .replace(u"[/size]"_s, u"</span>"_s, Qt::CaseInsensitive);
 
         html += u"<pre>" + description + u"</pre>";
     }
+    html += u"</div>";
 
     // Supplement relative URLs to absolute ones
-    const QUrl url {article->link()};
+    const QUrl url {articleLink};
     const QString baseUrl = url.toString(QUrl::RemovePath | QUrl::RemoveQuery);
     convertRelativeUrlToAbsolute(html, baseUrl);
-    html += u"</div>";
+
     m_ui->textBrowser->setHtml(html);
 }

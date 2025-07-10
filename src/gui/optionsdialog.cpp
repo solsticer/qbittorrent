@@ -663,7 +663,7 @@ void OptionsDialog::loadDownloadsTabOptions()
 #else
     m_ui->autoRunConsole->hide();
 #endif
-    const auto autoRunStr = u"%1\n    %2\n    %3\n    %4\n    %5\n    %6\n    %7\n    %8\n    %9\n    %10\n    %11\n    %12\n    %13\n%14"_s
+    const auto autoRunStr = u"%1\n    %2\n    %3\n    %4\n    %5\n    %6\n    %7\n    %8\n    %9\n    %10\n    %11\n    %12\n    %13\n    %14\n%15"_s
         .arg(tr("Supported parameters (case sensitive):")
             , tr("%N: Torrent name")
             , tr("%L: Category")
@@ -677,6 +677,7 @@ void OptionsDialog::loadDownloadsTabOptions()
             , tr("%I: Info hash v1 (or '-' if unavailable)")
             , tr("%J: Info hash v2 (or '-' if unavailable)")
             , tr("%K: Torrent ID (either sha-1 info hash for v1 torrent or truncated sha-256 info hash for v2/hybrid torrent)")
+            , tr("%M: Comment")
             , tr("Tip: Encapsulate parameter with quotation marks to avoid text being cut off at whitespace (e.g., \"%N\")"));
     m_ui->labelAutoRunParam->setText(autoRunStr);
 
@@ -1759,9 +1760,9 @@ void OptionsDialog::initializeStyleCombo()
     m_ui->labelStyle->hide();
     m_ui->comboStyle->hide();
     m_ui->labelStyleHint->hide();
-    m_ui->UISettingsBoxLayout->removeWidget(m_ui->labelStyle);
-    m_ui->UISettingsBoxLayout->removeWidget(m_ui->comboStyle);
-    m_ui->UISettingsBoxLayout->removeWidget(m_ui->labelStyleHint);
+    m_ui->layoutStyle->removeWidget(m_ui->labelStyle);
+    m_ui->layoutStyle->removeWidget(m_ui->comboStyle);
+    m_ui->layoutStyle->removeWidget(m_ui->labelStyleHint);
 #endif
 }
 
@@ -1775,9 +1776,9 @@ void OptionsDialog::initializeColorSchemeOptions()
 #else
     m_ui->labelColorScheme->hide();
     m_ui->comboColorScheme->hide();
-    m_ui->UISettingsBoxLayout->removeWidget(m_ui->labelColorScheme);
-    m_ui->UISettingsBoxLayout->removeWidget(m_ui->comboColorScheme);
-    m_ui->UISettingsBoxLayout->removeItem(m_ui->spacerColorScheme);
+    m_ui->layoutStyle->removeWidget(m_ui->labelColorScheme);
+    m_ui->layoutStyle->removeWidget(m_ui->comboColorScheme);
+    m_ui->layoutStyle->removeItem(m_ui->spacerColorScheme);
 #endif
 }
 

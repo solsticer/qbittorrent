@@ -145,7 +145,7 @@ window.qBittorrent.PropPeers ??= (() => {
                     maximizable: false,
                     paddingVertical: 0,
                     paddingHorizontal: 0,
-                    width: 350,
+                    width: window.qBittorrent.Dialog.limitWidthToViewport(350),
                     height: 260
                 });
             },
@@ -183,10 +183,9 @@ window.qBittorrent.PropPeers ??= (() => {
         }
     });
 
-    new ClipboardJS("#CopyPeerInfo", {
-        text: (trigger) => {
-            return torrentPeersTable.selectedRowsIds().join("\n");
-        }
+    document.getElementById("CopyPeerInfo").addEventListener("click", async (event) => {
+        const text = torrentPeersTable.selectedRowsIds().join("\n");
+        await clipboardCopy(text);
     });
 
     torrentPeersTable.setup("torrentPeersTableDiv", "torrentPeersTableFixedHeaderDiv", torrentPeersContextMenu, true);

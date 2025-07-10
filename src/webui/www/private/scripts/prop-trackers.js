@@ -74,28 +74,32 @@ window.qBittorrent.PropTrackers ??= (() => {
                     return;
 
                 const selectedTrackers = torrentTrackersTable.selectedRowsIds();
-                torrentTrackersTable.clear();
 
                 const trackers = await response.json();
                 if (trackers) {
+                    torrentTrackersTable.clear();
+
                     trackers.each((tracker) => {
                         let status;
-                        switch (tracker.status) {
-                            case 0:
-                                status = "QBT_TR(Disabled)QBT_TR[CONTEXT=TrackerListWidget]";
-                                break;
-                            case 1:
-                                status = "QBT_TR(Not contacted yet)QBT_TR[CONTEXT=TrackerListWidget]";
-                                break;
-                            case 2:
-                                status = "QBT_TR(Working)QBT_TR[CONTEXT=TrackerListWidget]";
-                                break;
-                            case 3:
-                                status = "QBT_TR(Updating...)QBT_TR[CONTEXT=TrackerListWidget]";
-                                break;
-                            case 4:
-                                status = "QBT_TR(Not working)QBT_TR[CONTEXT=TrackerListWidget]";
-                                break;
+
+                        if (tracker.updating) {
+                            status = "QBT_TR(Updating...)QBT_TR[CONTEXT=TrackerListWidget]";
+                        }
+                        else {
+                            switch (tracker.status) {
+                                case 0:
+                                    status = "QBT_TR(Disabled)QBT_TR[CONTEXT=TrackerListWidget]";
+                                    break;
+                                case 1:
+                                    status = "QBT_TR(Not contacted yet)QBT_TR[CONTEXT=TrackerListWidget]";
+                                    break;
+                                case 2:
+                                    status = "QBT_TR(Working)QBT_TR[CONTEXT=TrackerListWidget]";
+                                    break;
+                                case 4:
+                                    status = "QBT_TR(Not working)QBT_TR[CONTEXT=TrackerListWidget]";
+                                    break;
+                            }
                         }
 
                         const row = {
@@ -122,7 +126,7 @@ window.qBittorrent.PropTrackers ??= (() => {
             })
             .finally(() => {
                 clearTimeout(loadTrackersDataTimer);
-                loadTrackersDataTimer = loadTrackersData.delay(10000);
+                loadTrackersDataTimer = loadTrackersData.delay(window.qBittorrent.Client.getSyncMainDataInterval());
             });
     };
 
@@ -176,6 +180,11 @@ window.qBittorrent.PropTrackers ??= (() => {
     const addTrackerFN = () => {
         if (current_hash.length === 0)
             return;
+
+        const selectedTorrents = torrentsTable.selectedRowsIds();
+        if (selectedTorrents.length !== 0)
+            current_hash = selectedTorrents.map(encodeURIComponent).join("|");
+
         new MochaUI.Window({
             id: "trackersPage",
             icon: "images/qbittorrent-tray.svg",
@@ -188,7 +197,7 @@ window.qBittorrent.PropTrackers ??= (() => {
             closable: true,
             paddingVertical: 0,
             paddingHorizontal: 0,
-            width: 500,
+            width: window.qBittorrent.Dialog.limitWidthToViewport(500),
             height: 260,
             onCloseComplete: () => {
                 updateData();
@@ -213,7 +222,7 @@ window.qBittorrent.PropTrackers ??= (() => {
             closable: true,
             paddingVertical: 0,
             paddingHorizontal: 0,
-            width: 500,
+            width: window.qBittorrent.Dialog.limitWidthToViewport(500),
             height: 150,
             onCloseComplete: () => {
                 updateData();
@@ -224,6 +233,10 @@ window.qBittorrent.PropTrackers ??= (() => {
     const removeTrackerFN = (element) => {
         if (current_hash.length === 0)
             return;
+
+        const selectedTorrents = torrentsTable.selectedRowsIds();
+        if (selectedTorrents.length !== 0)
+            current_hash = selectedTorrents.map(encodeURIComponent).join("|");
 
         fetch("api/v2/torrents/removeTrackers", {
                 method: "POST",
@@ -244,10 +257,9 @@ window.qBittorrent.PropTrackers ??= (() => {
         torrentTrackersTable.clear();
     };
 
-    new ClipboardJS("#CopyTrackerUrl", {
-        text: (trigger) => {
-            return torrentTrackersTable.selectedRowsIds().join("\n");
-        }
+    document.getElementById("CopyTrackerUrl").addEventListener("click", async (event) => {
+        const text = torrentTrackersTable.selectedRowsIds().join("\n");
+        await clipboardCopy(text);
     });
 
     torrentTrackersTable.setup("torrentTrackersTableDiv", "torrentTrackersTableFixedHeaderDiv", torrentTrackersContextMenu, true);

@@ -331,7 +331,6 @@ window.qBittorrent.ContextMenu ??= (() => {
             let there_are_force_start = false;
             let all_are_super_seeding = true;
             let all_are_auto_tmm = true;
-            let there_are_auto_tmm = false;
             let thereAreV1Hashes = false;
             let thereAreV2Hashes = false;
             const tagCount = new Map();
@@ -366,9 +365,7 @@ window.qBittorrent.ContextMenu ??= (() => {
                 else
                     there_are_force_start = true;
 
-                if (data["auto_tmm"] === true)
-                    there_are_auto_tmm = true;
-                else
+                if (data["auto_tmm"] !== true)
                     all_are_auto_tmm = false;
 
                 if (data["infohash_v1"] !== "")
@@ -446,13 +443,7 @@ window.qBittorrent.ContextMenu ??= (() => {
             else if (!there_are_stopped && !there_are_force_start)
                 this.hideItem("start");
 
-            if (!all_are_auto_tmm && there_are_auto_tmm) {
-                this.hideItem("autoTorrentManagement");
-            }
-            else {
-                this.showItem("autoTorrentManagement");
-                this.setItemChecked("autoTorrentManagement", all_are_auto_tmm);
-            }
+            this.setItemChecked("autoTorrentManagement", all_are_auto_tmm);
 
             this.setEnabled("copyInfohash1", thereAreV1Hashes);
             this.setEnabled("copyInfohash2", thereAreV2Hashes);
@@ -478,7 +469,7 @@ window.qBittorrent.ContextMenu ??= (() => {
 
         updateCategoriesSubMenu(categories) {
             const contextCategoryList = document.getElementById("contextCategoryList");
-            [...contextCategoryList.children].forEach((el) => { el.destroy(); });
+            [...contextCategoryList.children].forEach((el) => { el.remove(); });
 
             const createMenuItem = (text, imgURL, clickFn) => {
                 const anchor = document.createElement("a");
@@ -620,11 +611,18 @@ window.qBittorrent.ContextMenu ??= (() => {
 
     class TrackersFilterContextMenu extends FilterListContextMenu {
         updateMenuItems() {
-            const id = this.options.element.id;
-            if ((id !== TRACKERS_ALL) && (id !== TRACKERS_TRACKERLESS))
-                this.showItem("deleteTracker");
-            else
-                this.hideItem("deleteTracker");
+            switch (this.options.element.id) {
+                case TRACKERS_ALL:
+                case TRACKERS_ANNOUNCE_ERROR:
+                case TRACKERS_ERROR:
+                case TRACKERS_TRACKERLESS:
+                case TRACKERS_WARNING:
+                    this.hideItem("deleteTracker");
+                    break;
+                default:
+                    this.showItem("deleteTracker");
+                    break;
+            }
 
             this.updateTorrentActions();
         }
