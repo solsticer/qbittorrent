@@ -484,6 +484,10 @@ void AppController::preferencesAction()
     data[u"request_queue_size"_s] = session->requestQueueSize();
     // DHT bootstrap nodes
     data[u"dht_bootstrap_nodes"_s] = session->getDHTBootstrapNodes();
+    // User agent
+    data[u"user_agent"_s] = session->getUserAgent();
+    // Peer ID
+    data[u"peer_fingerprint"_s] = session->getPeerIdPrefix();
 
     setResult(data);
 }
@@ -1164,6 +1168,12 @@ void AppController::setPreferencesAction()
     // DHT bootstrap nodes
     if (hasKey(u"dht_bootstrap_nodes"_s))
         session->setDHTBootstrapNodes(it.value().toString());
+    // User agent
+    if (hasKey(u"user_agent"_s))
+        session->setUserAgent(it.value().toString());
+    // Peer ID
+    if (hasKey(u"peer_fingerprint"_s))
+        session->setPeerIdPrefix(it.value().toString());
 
     // Save preferences
     pref->apply();

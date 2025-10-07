@@ -172,6 +172,8 @@ namespace
         PEER_TURNOVER_INTERVAL,
         REQUEST_QUEUE_SIZE,
         DHT_BOOTSTRAP_NODES,
+        USER_AGENT,
+        PEER_ID_PREFIX,
 #if defined(QBT_USES_LIBTORRENT2) && TORRENT_USE_I2P
         I2P_INBOUND_QUANTITY,
         I2P_OUTBOUND_QUANTITY,
@@ -370,6 +372,10 @@ void AdvancedSettings::saveAdvancedSettings() const
     session->setRequestQueueSize(m_spinBoxRequestQueueSize.value());
     // DHT bootstrap nodes
     session->setDHTBootstrapNodes(m_lineEditDHTBootstrapNodes.text());
+    // User agent
+    session->setUserAgent(m_lineEditUserAgent.text().trimmed());
+    // Peer ID
+    session->setPeerIdPrefix(m_lineEditPeerIdPrefix.text().trimmed());
 #if defined(QBT_USES_LIBTORRENT2) && TORRENT_USE_I2P
     // I2P session options
     session->setI2PInboundQuantity(m_spinBoxI2PInboundQuantity.value());
@@ -969,6 +975,18 @@ void AdvancedSettings::loadAdvancedSettings()
     m_lineEditDHTBootstrapNodes.setText(session->getDHTBootstrapNodes());
     addRow(DHT_BOOTSTRAP_NODES, (tr("DHT bootstrap nodes") + u' ' + makeLink(u"https://www.libtorrent.org/reference-Settings.html#dht_bootstrap_nodes", u"(?)"))
         , &m_lineEditDHTBootstrapNodes);
+    // User agent
+    m_lineEditUserAgent.setPlaceholderText(tr("Resets to default if empty"));
+    m_lineEditUserAgent.setText(session->getUserAgent());
+    addRow(USER_AGENT, (tr("User agent") + u' ' + makeLink(u"https://www.libtorrent.org/reference-Settings.html#user_agent", u"(?)"))
+        , &m_lineEditUserAgent);
+    // Peer ID
+    m_lineEditPeerIdPrefix.setPlaceholderText(tr("Resets to default if empty"));
+    m_lineEditPeerIdPrefix.setMaxLength(20);
+    m_lineEditPeerIdPrefix.setToolTip(tr("Leave empty to use default peer ID. Can be up to 20 bytes. If longer, it will be truncated. Example: '-qB4500-'   or full 20-byte peer ID"));
+    m_lineEditPeerIdPrefix.setText(session->getPeerIdPrefix());
+    addRow(PEER_ID_PREFIX, (tr("Peer ID (requires restart)") + u' ' + makeLink(u"https://www.libtorrent.org/reference-Settings.html#peer_fingerprint", u"   (?)"))
+        , &m_lineEditPeerIdPrefix);
 #if defined(QBT_USES_LIBTORRENT2) && TORRENT_USE_I2P
     // I2P session options
     m_spinBoxI2PInboundQuantity.setMinimum(1);

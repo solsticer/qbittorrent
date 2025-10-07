@@ -1685,6 +1685,22 @@ Use ';' to split multiple entries. Can use wildcard '*'.)QBT_TR[CONTEXT=OptionsD
                         <input type="text" id="dhtBootstrapNodes" placeholder="QBT_TR(Resets to default if empty)QBT_TR[CONTEXT=OptionsDialog]" style="width: 15em;">
                     </td>
                 </tr>
+                <tr>
+                    <td>
+                        <label for="userAgent">QBT_TR(User agent:)QBT_TR[CONTEXT=OptionsDialog]&nbsp;<a href="https://www.libtorrent.org/reference-Settings.html#user_agent" target="_blank">(?)</a></label>
+                    </td>
+                    <td>
+                        <input type="text" id="userAgent" placeholder="QBT_TR(Resets to default if empty)QBT_TR[CONTEXT=OptionsDialog]" style="width: 15em;">
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label for="peerIdPrefix">QBT_TR(Peer ID:)QBT_TR[CONTEXT=OptionsDialog]&nbsp;<a href="https://www.libtorrent.org/reference-Settings.html#peer_fingerprint" target="_blank">(?)</a></label>
+                    </td>
+                    <td>
+                        <input type="text" id="peerIdPrefix" placeholder="QBT_TR(Leave empty to use default peer ID. Can be up to 20 bytes. If longer, it will be truncated. Example: '-qB4500-'   or full 20-byte peer ID)QBT_TR[CONTEXT=OptionsDialog]" style="width: 15em;">
+                    </td>
+                </tr>
                 <tr id="rowI2pInboundQuantity">
                     <td>
                         <label for="i2pInboundQuantity">QBT_TR(I2P inbound quantity:)QBT_TR[CONTEXT=OptionsDialog]&nbsp;<a href="https://www.libtorrent.org/reference-Settings.html#i2p_inbound_quantity" target="_blank">(?)</a></label>
@@ -2609,6 +2625,8 @@ Use ';' to split multiple entries. Can use wildcard '*'.)QBT_TR[CONTEXT=OptionsD
                     $("peerTurnoverInterval").value = pref.peer_turnover_interval;
                     $("requestQueueSize").value = pref.request_queue_size;
                     $("dhtBootstrapNodes").value = pref.dht_bootstrap_nodes;
+                    $("userAgent").value = pref.user_agent;
+                    $("peerIdPrefix").value = pref.peer_fingerprint;
                     $("i2pInboundQuantity").value = pref.i2p_inbound_quantity;
                     $("i2pOutboundQuantity").value = pref.i2p_outbound_quantity;
                     $("i2pInboundLength").value = pref.i2p_inbound_length;
@@ -3083,6 +3101,8 @@ Use ';' to split multiple entries. Can use wildcard '*'.)QBT_TR[CONTEXT=OptionsD
             settings["peer_turnover_interval"] = Number($("peerTurnoverInterval").value);
             settings["request_queue_size"] = Number($("requestQueueSize").value);
             settings["dht_bootstrap_nodes"] = $("dhtBootstrapNodes").value;
+            settings["user_agent"] = $("userAgent").value;
+            settings["peer_fingerprint"] = $("peerIdPrefix").value;
             settings["i2p_inbound_quantity"] = Number($("i2pInboundQuantity").value);
             settings["i2p_outbound_quantity"] = Number($("i2pOutboundQuantity").value);
             settings["i2p_inbound_length"] = Number($("i2pInboundLength").value);

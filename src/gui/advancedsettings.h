@@ -84,6 +84,7 @@ private:
     QComboBox m_comboBoxInterface, m_comboBoxInterfaceAddress, m_comboBoxDiskIOReadMode, m_comboBoxDiskIOWriteMode, m_comboBoxUtpMixedMode, m_comboBoxChokingAlgorithm,
               m_comboBoxSeedChokingAlgorithm, m_comboBoxResumeDataStorage, m_comboBoxTorrentContentRemoveOption;
     QLineEdit m_lineEditAppInstanceName, m_pythonExecutablePath, m_lineEditAnnounceIP, m_lineEditDHTBootstrapNodes;
+    QLineEdit m_lineEditUserAgent, m_lineEditPeerIdPrefix;
 
 #ifndef QBT_USES_LIBTORRENT2
     QSpinBox m_spinBoxCache, m_spinBoxCacheTTL;
