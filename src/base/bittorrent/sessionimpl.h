@@ -185,8 +185,8 @@ namespace BitTorrent
         void setDHTBootstrapNodes(const QString &nodes) override;
         QString getUserAgent() const override;
         void setUserAgent(const QString &value) override;
-        QString getPeerIdPrefix() const override;
-        void setPeerIdPrefix(const QString &value) override;
+        QString getPeerFingerprint() const override;
+        void setPeerFingerprint(const QString &value) override;
         bool isDHTEnabled() const override;
         void setDHTEnabled(bool enabled) override;
         bool isLSDEnabled() const override;
@@ -633,7 +633,7 @@ namespace BitTorrent
 
         CachedSettingValue<QString> m_DHTBootstrapNodes;
         CachedSettingValue<QString> m_userAgent;
-        CachedSettingValue<QString> m_peerIdPrefix;
+        CachedSettingValue<QString> m_peerFingerprint;
         CachedSettingValue<bool> m_isDHTEnabled;
         CachedSettingValue<bool> m_isLSDEnabled;
         CachedSettingValue<bool> m_isPeXEnabled;

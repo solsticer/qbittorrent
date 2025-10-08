@@ -173,7 +173,7 @@ namespace
         REQUEST_QUEUE_SIZE,
         DHT_BOOTSTRAP_NODES,
         USER_AGENT,
-        PEER_ID_PREFIX,
+        PEER_FINGERPRINT,
 #if defined(QBT_USES_LIBTORRENT2) && TORRENT_USE_I2P
         I2P_INBOUND_QUANTITY,
         I2P_OUTBOUND_QUANTITY,
@@ -375,7 +375,7 @@ void AdvancedSettings::saveAdvancedSettings() const
     // User agent
     session->setUserAgent(m_lineEditUserAgent.text().trimmed());
     // Peer ID
-    session->setPeerIdPrefix(m_lineEditPeerIdPrefix.text().trimmed());
+    session->setPeerFingerprint(m_lineEditPeerFingerprint.text().trimmed());
 #if defined(QBT_USES_LIBTORRENT2) && TORRENT_USE_I2P
     // I2P session options
     session->setI2PInboundQuantity(m_spinBoxI2PInboundQuantity.value());
@@ -978,15 +978,14 @@ void AdvancedSettings::loadAdvancedSettings()
     // User agent
     m_lineEditUserAgent.setPlaceholderText(tr("Resets to default if empty"));
     m_lineEditUserAgent.setText(session->getUserAgent());
-    addRow(USER_AGENT, (tr("User agent") + u' ' + makeLink(u"https://www.libtorrent.org/reference-Settings.html#user_agent", u"(?)"))
+    addRow(USER_AGENT, (tr("User agent (requires restart)") + u' ' + makeLink(u"https://www.libtorrent.org/reference-Settings.html#user_agent", u"(?)"))
         , &m_lineEditUserAgent);
     // Peer ID
-    m_lineEditPeerIdPrefix.setPlaceholderText(tr("Resets to default if empty"));
-    m_lineEditPeerIdPrefix.setMaxLength(20);
-    m_lineEditPeerIdPrefix.setToolTip(tr("Leave empty to use default peer ID. Can be up to 20 bytes. If longer, it will be truncated. Example: '-qB4500-'   or full 20-byte peer ID"));
-    m_lineEditPeerIdPrefix.setText(session->getPeerIdPrefix());
-    addRow(PEER_ID_PREFIX, (tr("Peer ID (requires restart)") + u' ' + makeLink(u"https://www.libtorrent.org/reference-Settings.html#peer_fingerprint", u"   (?)"))
-        , &m_lineEditPeerIdPrefix);
+    m_lineEditPeerFingerprint.setPlaceholderText(tr("Resets to default if empty"));
+    m_lineEditPeerFingerprint.setText(session->getPeerFingerprint());
+    m_lineEditPeerFingerprint.setToolTip(tr("Leave empty to use default peer ID. Can be up to 20 bytes. If longer, it will be truncated."));
+    addRow(PEER_FINGERPRINT, (tr("Peer ID (requires restart)") + u' ' + makeLink(u"https://www.libtorrent.org/ reference-Settings.html#peer_fingerprint", u"(?)"))
+        , &m_lineEditPeerFingerprint);
 #if defined(QBT_USES_LIBTORRENT2) && TORRENT_USE_I2P
     // I2P session options
     m_spinBoxI2PInboundQuantity.setMinimum(1);

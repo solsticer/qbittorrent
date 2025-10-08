@@ -398,7 +398,7 @@ SessionImpl::SessionImpl(QObject *parent)
     : Session(parent)
     , m_DHTBootstrapNodes(BITTORRENT_SESSION_KEY(u"DHTBootstrapNodes"_s), DEFAULT_DHT_BOOTSTRAP_NODES)
     , m_userAgent(BITTORRENT_SESSION_KEY(u"UserAgent"_s))
-    , m_peerIdPrefix(BITTORRENT_SESSION_KEY(u"PeerIdPrefix"_s))
+    , m_peerFingerprint(BITTORRENT_SESSION_KEY(u"PeerFingerprint"_s))
     , m_isDHTEnabled(BITTORRENT_SESSION_KEY(u"DHTEnabled"_s), true)
     , m_isLSDEnabled(BITTORRENT_SESSION_KEY(u"LSDEnabled"_s), true)
     , m_isPeXEnabled(BITTORRENT_SESSION_KEY(u"PeXEnabled"_s), true)
@@ -721,17 +721,17 @@ void SessionImpl::setUserAgent(const QString &value)
     m_userAgent = value;
 }
 
-QString SessionImpl::getPeerIdPrefix() const
+QString SessionImpl::getPeerFingerprint() const
 {
-    return m_peerIdPrefix;
+    return m_peerFingerprint;
 }
 
-void SessionImpl::setPeerIdPrefix(const QString &value)
+void SessionImpl::setPeerFingerprint(const QString &value)
 {
-    if (value == m_peerIdPrefix)
+    if (value == m_peerFingerprint)
         return;
 
-    m_peerIdPrefix = value;
+    m_peerFingerprint = value;
 }
 
 bool SessionImpl::isDHTEnabled() const
@@ -1680,10 +1680,10 @@ void SessionImpl::initializeNativeSession()
 
     // Custom or default peer ID
     std::string peerId;
-    const QString customPeerIdPrefix = m_peerIdPrefix.get().trimmed();
-    if (!customPeerIdPrefix.isEmpty())
+    const QString customPeerFingerprint = m_peerFingerprint.get().trimmed();
+    if (!customPeerFingerprint.isEmpty())
     {
-        peerId = customPeerIdPrefix.toStdString();
+        peerId = customPeerFingerprint.toStdString();
     }
     else
     {
