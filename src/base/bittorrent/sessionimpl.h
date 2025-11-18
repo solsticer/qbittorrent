@@ -619,6 +619,7 @@ namespace BitTorrent
 
         TorrentImpl *createTorrent(const lt::torrent_handle &nativeHandle, LoadTorrentParams params);
         TorrentImpl *getTorrent(const lt::torrent_handle &nativeHandle) const;
+        QList<TorrentImpl *> getQueuedTorrentsByID(const QList<TorrentID> &torrentIDs) const;
 
         void saveResumeData();
         void saveTorrentsQueue();
@@ -627,6 +628,7 @@ namespace BitTorrent
         void populateAdditionalTrackersFromURL();
 
         void fetchPendingAlerts(lt::time_duration time = lt::time_duration::zero());
+        void endAlertSequence(int alertType, qsizetype alertCount);
 
         void moveTorrentStorage(const MoveStorageJob &job) const;
         void handleMoveTorrentStorageJobFinished(const Path &newPath);

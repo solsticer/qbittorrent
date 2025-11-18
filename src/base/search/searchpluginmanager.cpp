@@ -31,6 +31,7 @@
 
 #include <memory>
 
+#include <QtLogging>
 #include <QDir>
 #include <QDirIterator>
 #include <QDomDocument>
@@ -87,7 +88,7 @@ namespace
 QPointer<SearchPluginManager> SearchPluginManager::m_instance = nullptr;
 
 SearchPluginManager::SearchPluginManager()
-    : m_updateUrl(u"https://searchplugins.qbittorrent.org/nova3/engines/"_s)
+    : m_updateUrl(u"https://raw.githubusercontent.com/qbittorrent/search-plugins/refs/heads/master/nova3/engines/"_s)
     , m_proxyEnv {QProcessEnvironment::systemEnvironment()}
 {
     Q_ASSERT(!m_instance); // only one instance is allowed
@@ -558,6 +559,13 @@ void SearchPluginManager::update()
     };
     nova.start(Utils::ForeignApps::pythonInfo().executablePath.data(), params, QIODevice::ReadOnly);
     nova.waitForFinished();
+
+    if (const auto errMsg = QString::fromUtf8(nova.readAllStandardError()).trimmed()
+        ; !errMsg.isEmpty())
+    {
+        qWarning("%s", qUtf8Printable(errMsg));
+        LogMsg(tr("Error occurred when fetching search engine capabilities. Error: \"%1\".").arg(errMsg), Log::WARNING);
+    }
 
     const auto capabilities = QString::fromUtf8(nova.readAllStandardOutput());
     QDomDocument xmlDoc;

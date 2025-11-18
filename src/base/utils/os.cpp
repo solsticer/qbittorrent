@@ -193,72 +193,6 @@ void Utils::OS::shutdownComputer([[maybe_unused]] const ShutdownDialogAction &ac
 #endif
 }
 
-#ifdef Q_OS_MACOS
-namespace
-{
-    const CFStringRef torrentExtension = CFSTR("torrent");
-    const CFStringRef magnetUrlScheme = CFSTR("magnet");
-}
-
-bool Utils::OS::isTorrentFileAssocSet()
-{
-    bool isSet = false;
-    const CFStringRef torrentId = ::UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, torrentExtension, NULL);
-    if (torrentId != NULL)
-    {
-        const CFStringRef defaultHandlerId = ::LSCopyDefaultRoleHandlerForContentType(torrentId, kLSRolesViewer);
-        if (defaultHandlerId != NULL)
-        {
-            const CFStringRef myBundleId = ::CFBundleGetIdentifier(::CFBundleGetMainBundle());
-            if (myBundleId != NULL)
-                isSet = ::CFStringCompare(myBundleId, defaultHandlerId, 0) == kCFCompareEqualTo;
-            ::CFRelease(defaultHandlerId);
-        }
-        ::CFRelease(torrentId);
-    }
-    return isSet;
-}
-
-void Utils::OS::setTorrentFileAssoc()
-{
-    if (isTorrentFileAssocSet())
-        return;
-
-    const CFStringRef torrentId = ::UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, torrentExtension, NULL);
-    if (torrentId != NULL)
-    {
-        const CFStringRef myBundleId = ::CFBundleGetIdentifier(::CFBundleGetMainBundle());
-        if (myBundleId != NULL)
-            ::LSSetDefaultRoleHandlerForContentType(torrentId, kLSRolesViewer, myBundleId);
-        ::CFRelease(torrentId);
-    }
-}
-
-bool Utils::OS::isMagnetLinkAssocSet()
-{
-    bool isSet = false;
-    const CFStringRef defaultHandlerId = ::LSCopyDefaultHandlerForURLScheme(magnetUrlScheme);
-    if (defaultHandlerId != NULL)
-    {
-        const CFStringRef myBundleId = ::CFBundleGetIdentifier(::CFBundleGetMainBundle());
-        if (myBundleId != NULL)
-            isSet = ::CFStringCompare(myBundleId, defaultHandlerId, 0) == kCFCompareEqualTo;
-        ::CFRelease(defaultHandlerId);
-    }
-    return isSet;
-}
-
-void Utils::OS::setMagnetLinkAssoc()
-{
-    if (isMagnetLinkAssocSet())
-        return;
-
-    const CFStringRef myBundleId = ::CFBundleGetIdentifier(::CFBundleGetMainBundle());
-    if (myBundleId != NULL)
-        ::LSSetDefaultHandlerForURLScheme(magnetUrlScheme, myBundleId);
-}
-#endif // Q_OS_MACOS
-
 #ifdef Q_OS_WIN
 Path Utils::OS::windowsSystemPath()
 {
@@ -341,11 +275,11 @@ bool Utils::OS::applyMarkOfTheWeb(const Path &file, const QString &url)
     const QByteArray zoneID = QByteArrayLiteral("[ZoneTransfer]\r\nZoneId=3\r\n")
         + u"HostUrl=%1\r\n"_s.arg(hostURL).toUtf8();
 
-    if (LARGE_INTEGER streamSize = {0};
+    if (LARGE_INTEGER streamSize {};
         ::GetFileSizeEx(handle, &streamSize) && (streamSize.QuadPart > 0))
     {
         const DWORD expectedReadSize = std::min<LONGLONG>(streamSize.QuadPart, 1024);
-        QByteArray buf {expectedReadSize, '\0'};
+        QByteArray buf {static_cast<qsizetype>(expectedReadSize), '\0'};
 
         if (DWORD actualReadSize = 0;
             ::ReadFile(handle, buf.data(), expectedReadSize, &actualReadSize, nullptr) && (actualReadSize == expectedReadSize))
@@ -355,14 +289,14 @@ bool Utils::OS::applyMarkOfTheWeb(const Path &file, const QString &url)
         }
     }
 
-    if (!::SetFilePointerEx(handle, {0}, nullptr, FILE_BEGIN))
+    if (!::SetFilePointerEx(handle, {}, nullptr, FILE_BEGIN))
         return false;
     if (!::SetEndOfFile(handle))
         return false;
 
     DWORD written = 0;
     const BOOL writeResult = ::WriteFile(handle, zoneID.constData(), zoneID.size(), &written, nullptr);
-    return writeResult && (written == zoneID.size());
+    return writeResult && (static_cast<qsizetype>(written) == zoneID.size());
 #endif
 }
 #endif // Q_OS_MACOS || Q_OS_WIN
